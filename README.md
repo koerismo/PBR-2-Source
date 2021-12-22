@@ -11,3 +11,6 @@ A Python-powered gui for converting pbr materials into Source Engine-compatible 
 *Demonstration of PBR-2-Source usage*
 
 ![image](https://user-images.githubusercontent.com/56563658/147159923-d796fc5f-aef8-45f5-967d-ffa2633a8f03.png)
+
+---
+### [View Builds](https://github.com/koerismo/PBR-2-Source/releases)
