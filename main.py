@@ -3,6 +3,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QErrorMessage, QFileDia
 from gui import mainWin
 from pathlib import Path
 from math import log2
+import logging
+logging.getLogger().setLevel( 20 )
 
 from os.path import join as joinPath
 from tempfile import gettempdir
@@ -16,12 +18,12 @@ class frontend( mainWin ):
 		super().__init__()
 
 		self.data = {
-			'OutputShader': 'LightmappedGeneric',
-			'OutputEnvmap': 'None',
+			'OutputShader': ('LightmappedGeneric',False),
+			'OutputEnvmap': None,
 			'OutputReflectIntensity': 30,
 			'ImageDiffuse': None,
 			'ImageRoughness': None,
-			#'ImageMetallic': None,
+			'ImageMetallic': None,
 			'ImageNormal': None,
 			'SizeOverride': False
 		}
@@ -34,7 +36,7 @@ class frontend( mainWin ):
 		self.exportBtn.setEnabled( all([
 			self.data['ImageDiffuse'],
 			self.data['ImageRoughness'],
-			#self.data['ImageMetallic'],
+			self.data['ImageMetallic'],
 			self.data['ImageNormal']
 		]) )
 
@@ -58,16 +60,11 @@ class frontend( mainWin ):
 			def isPowerOfTwo( v ): return log2(v)%1 == 0
 			return isPowerOfTwo(img.width) and isPowerOfTwo(img.height)
 
-		for img in [
-			self.data['ImageDiffuse'],
-			#self.data['ImageMetallic'], # Roughness is baked into the ImageDiffuse texture, so it'll be resized anyways.
-			self.data['ImageNormal']]:
-			if img is None: continue
-			if not checkImageSize( img ):
-				msg = QErrorMessage( self )
-				msg.showMessage( 'An image has a non-power of two size!' )
-				msg.activateWindow()
-				return
+		if not checkImageSize( self.data['ImageDiffuse'] ):
+			msg = QErrorMessage( self )
+			msg.showMessage( 'Basetexture has a non-power of two size!' )
+			msg.activateWindow()
+			return
 
 
 		''' ---------- DO PATH MAGIC ---------- '''
@@ -90,40 +87,59 @@ class frontend( mainWin ):
 
 
 		''' ---------- WRITE VMT ---------- '''
+		logging.info(' Creating VMT... ')
 
 		self.progressBar.setValue( 1 )
 
 		with open( path, 'w' ) as vmt:
-			if self.data['OutputEnvmap'] == None:
+			vmt.writelines([
+				'"'+self.data['OutputShader'][0]+'"\n',
+				'{\n',
+				'    $basetexture          "'+vmtPathStr+'_basecolor"\n',
+				'    $bumpmap              "'+vmtPathStr+'_bump"\n'
+			])
+
+			if self.data['OutputShader'][0] == 'PBR':
 				vmt.writelines([
-					'"'+self.data.get('OutputShader')+'"\n',
-					'{\n',
-					'    $basetexture          "'+vmtPathStr+'_basecolor"\n',
-					'    $bumpmap              "'+vmtPathStr+'_bump"\n',
-					'}'
+					'    $mraotexxture         "'+vmtPathStr+'_mrao"\n',
 				])
-			else:
+
+			if self.data['OutputEnvmap'] != None:
 				vmt.writelines([
-					'"'+self.data.get('OutputShader')+'"\n',
-					'{\n',
-					'    $basetexture          "'+vmtPathStr+'_basecolor"\n',
-					'    $bumpmap              "'+vmtPathStr+'_bump"\n',
 					'\n',
 					'    $envmap               "'+self.data['OutputEnvmap']+'"\n',
 					'    $envmaptint           '+str(round(self.data['OutputReflectIntensity']/100,2))+'\n',
 					'    $envmaplightscale     0.98\n',
 					'    $basealphaenvmapmask  1\n',
-					'}'
 				])
 
-		''' ---------- PROCESS BASETEXTURE ---------- '''
+			if self.data['OutputShader'][1]:
+				vmt.writelines([
+					'    $model 1\n'
+				])
+			
+			vmt.write('}')
+
+		''' ---------- BEGIN IMAGE PROCESSING ---------- '''
+		logging.info(' Processing images... ')
 
 		self.progressBar.setValue( 2 )
 
-		def applyAlphaToTexture( tex:Image, alpha:Image ):
-			r, g, b = tex.split()
-			r2, g2, b2 = alpha.split()
-			return Image.merge( 'RGBA', (r, g, b, r2) )
+		def crossChannels( tex1:Image, chan1:int, tex2:Image, chan2:int ):
+			'''Takes a channel from tex1 and replaces the contents of tex2's chan2'''
+			r1, g1, b1, a1 = tex1.convert('RGBA').split()
+			r2, g2, b2, a2 = tex2.convert('RGBA').split()
+			match chan1:
+				case 0: src = r1
+				case 1: src = g1
+				case 2: src = b1
+				case 3: src = a1
+			match chan2:
+				case 0: r2 = src
+				case 1: g2 = src
+				case 2: b2 = src
+				case 3: a2 = src
+			return Image.merge( 'RGBA', (r2, g2, b2, a2) )
 
 		# Register basetexture
 
@@ -132,24 +148,39 @@ class frontend( mainWin ):
 
 		# Register AO, Apply AO to basetexture
 
-		AOTexture = None
+		AOTexture = Image.new( 'RGB', BaseTexture.size, 255 )
 		if self.data.get('ImageAo') != None:
-			AOTexture = self.data['ImageAo'].convert('RGB').resize( (BaseTexture.width,BaseTexture.height) )
-			BaseTexture = ImageChops.multiply( BaseTexture, AOTexture )
+			AOTexture = self.data['ImageAo'].convert('RGB').resize( BaseTexture.size )
+			
+			if self.data['OutputShader'][0] != 'PBR':
+				BaseTexture = ImageChops.multiply( BaseTexture, AOTexture )
 
-		# Register roughness, apply roughness to basetexture (ONLY IF ENVMAPS ARE ENABLED)
+		# Register metallic
+		MetallicTexture = self.data['ImageMetallic'].convert('RGB').resize( BaseTexture.size )
 
-		if self.data['OutputEnvmap'] != None:
-			RoughnessTexture = self.data['ImageRoughness'].convert('RGB').resize( (BaseTexture.width,BaseTexture.height) )
-			BaseTexture = applyAlphaToTexture( BaseTexture, RoughnessTexture )
+		# Register roughness
+		RoughnessTexture = self.data['ImageRoughness'].convert('RGB').resize( BaseTexture.size )
+
+		# Apply metallic to roughness, and add resulting specularity as a mask to basetexture. (ONLY IF REFLECTIONS ARE ENABLED AND NOT IN PBR MODE)
+		if self.data['OutputEnvmap'] != None and self.data['OutputShader'][0] != 'PBR':
+			RoughnessTexture = ImageChops.multiply( RoughnessTexture, MetallicTexture )
+			BaseTexture = crossChannels( RoughnessTexture, 0, BaseTexture, 3 )
+
+		''' ---------- PROCESS MRAO (PBR) ---------- '''
+
+		if self.data['OutputShader'][0] == 'PBR':
+			MRAOTexture = Image.new( 'RGB', BaseTexture.size, 255 )
+			MRAOTexture = crossChannels( MetallicTexture, 0, MRAOTexture, 0 )
+			MRAOTexture = crossChannels( RoughnessTexture, 0, MRAOTexture, 1 )
+			MRAOTexture = crossChannels( AOTexture, 0, MRAOTexture, 2 )
+
 
 
 		''' ---------- PROCESS NORMAL MAP ---------- '''
 
 		self.progressBar.setValue( 3 )
 
-		NormalTexture = self.data['ImageNormal'].convert('RGB')
-		if self.data['SizeOverride']: NormalTexture = NormalTexture.resize( (self.data['SizeOverride'], self.data['SizeOverride']) )
+		NormalTexture = self.data['ImageNormal'].convert('RGB').resize( BaseTexture.size )
 
 		if self.checkFlipY.isChecked():
 			def flipG( tex ):
@@ -160,6 +191,7 @@ class frontend( mainWin ):
 
 
 		''' ---------- CONVERT IMAGES ---------- '''
+		logging.info(' Converting images... ')
 		
 		self.progressBar.setValue( 4 )
 
@@ -168,23 +200,32 @@ class frontend( mainWin ):
 			v.get( frame=0 ).copy_from( img.convert('RGBA').tobytes() )
 			return v
 
-		if self.data['OutputEnvmap'] == None:
+		if self.data['OutputShader'][0] == 'PBR':
 			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
+			MRAOTextureVTF = PILToVTF( MRAOTexture, VTFFormats.DXT1 )
 		else:
-			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
+			if self.data['OutputEnvmap'] == None:
+				BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
+			else:
+				BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
 		NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.UV88 )
 
 		targetDir = str( self.removeSuffix(Path(path)) )
 
 
 		''' ---------- SAVE IMAGES ---------- '''
+		logging.info(' All processing complete! Saving images... ')
 
 		with open( targetDir+'_basecolor.vtf', 'wb' ) as targetfile:
 			BaseTextureVTF.save( targetfile )
 		with open( targetDir+'_bump.vtf', 'wb' ) as targetfile:
 			NormalTextureVTF.save( targetfile )
+		if self.data['OutputShader'][0] == 'PBR':
+			with open( targetDir+'_mrao.vtf', 'wb' ) as targetfile:
+				MRAOTextureVTF.save( targetfile )
 
 		self.progressBar.setValue( 5 )
+		logging.info(' All files saved successfully! ')
 
 		msgBox = QMessageBox()
 		msgBox.setWindowTitle( self.windowTitle() )

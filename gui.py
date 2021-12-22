@@ -34,6 +34,7 @@ class mainWin( q.QWidget ):
 			label.setFixedSize( 48, 48 )
 			label.setBackgroundRole( QtGui.QPalette.ColorRole.Mid )
 			label.setAutoFillBackground( True )
+			label.setObjectName('previewImage')
 
 			self.inputLayout.addWidget( label, row, 0, 2, 1 )
 			self.inputLayout.addWidget( q.QLabel(name), row, 1, 1, 2, alignment=QtCore.Qt.AlignRight )
@@ -66,7 +67,7 @@ class mainWin( q.QWidget ):
 		addInputForm( 'Diffuse', 0, 'diffuse', False )
 		addInputForm( 'AO (Optional)', 2, 'ao', True )
 		addInputForm( 'Roughness', 4, 'roughness', True )
-		#addInputForm( 'Metallic', 6, 'metallic', True )
+		addInputForm( 'Metallic', 6, 'metallic', True )
 		addInputForm( 'Normal Map', 8, 'normal', False )
 
 		''' --------------- OUTPUT --------------- '''
@@ -78,17 +79,43 @@ class mainWin( q.QWidget ):
 		self.outputLayout.setAlignment( QtCore.Qt.AlignTop )
 		self.outputLayout.setSpacing( 1 )
 
+		# Export mode
+		'''
+		self.outputLayout.addWidget( q.QLabel('Export Mode') )
+
+		exportModeLayout = q.QHBoxLayout()
+		self.exportModeClassic = q.QPushButton( 'Classic' )
+		self.exportModeClassic.setCheckable( True )
+		self.exportModeClassic.setChecked( True )
+		exportModeLayout.addWidget( self.exportModeClassic )
+		self.exportModePBR = q.QPushButton( 'PBR' )
+		self.exportModePBR.setCheckable( True )
+		exportModeLayout.addWidget( self.exportModePBR )
+
+		self.outputLayout.addLayout( exportModeLayout )
+		'''
+
+
 
 		self.outputLayout.addWidget( q.QLabel('Shader') )
 		self.shaderInput = q.QComboBox()
-		self.shaderInput.addItems([
-			'LightmappedGeneric',
-			'VertexLitGeneric'
-		])
+		for a,b in [
+			('Standard (Brush)', ('LightmappedGeneric', False)), # The second value in these tuples is whether they require `$model 1` to be inserted.
+			('Standard (Model)', ('VertexLitGeneric', False)),
+			('PBR (Brush)', ('PBR', False)),
+			('PBR (Model)', ('PBR', True))
+		]: self.shaderInput.addItem( a, b )
+
+		def evalCustomShaderInput( x ):
+			if (ind := self.shaderInput.findText( x )) != -1:
+				self.setProperty( 'OutputShader', self.shaderInput.itemData(ind) )
+			else:
+				self.setProperty( 'OutputShader', (x, False) )
+		self.shaderInput.currentTextChanged.connect( evalCustomShaderInput )
+
 		self.shaderInput.setEditable( True )
-		self.shaderInput.setCurrentText( 'LightmappedGeneric' )
+		self.shaderInput.setCurrentIndex(0)
 		self.shaderInput.setInsertPolicy( q.QComboBox.NoInsert )
-		self.shaderInput.currentTextChanged.connect( lambda x: self.setProperty( 'OutputShader', x ) )
 		self.outputLayout.addWidget( self.shaderInput )
 
 		self.outputLayout.addSpacing( 10 )
@@ -113,12 +140,12 @@ class mainWin( q.QWidget ):
 		self.outputLayout.addWidget( self.cubemapInput )
 
 		# Handles when to take custom text and when to use the full path of the presets
-		def evalCustomInput( x ):
+		def evalCustomEnvmapInput( x ):
 			if (ind := self.cubemapInput.findText( x )) != -1:
 				self.setProperty( 'OutputEnvmap', self.cubemapInput.itemData(ind) )
 			else:
 				self.setProperty( 'OutputEnvmap', x )
-		self.cubemapInput.currentTextChanged.connect( evalCustomInput )
+		self.cubemapInput.currentTextChanged.connect( evalCustomEnvmapInput )
 
 		self.outputLayout.addSpacing( 10 )
 		
@@ -163,6 +190,7 @@ class mainWin( q.QWidget ):
 		self.resizeToInputLayout.addWidget( self.resizeToInput )
 		self.resizeToInput.currentIndexChanged.connect( handleResizeInputChange )
 
+
 		''' --------------- FOOTER --------------- '''
 
 		self.footer.setSpacing( 0 )
@@ -185,3 +213,9 @@ class mainWin( q.QWidget ):
 
 	def onImageLoaded( self, name, img ):
 		self.setProperty( 'Image'+name, img )
+
+if __name__ == '__main__':
+	app = q.QApplication()
+	win = mainWin()
+	win.show()
+	app.exec()
