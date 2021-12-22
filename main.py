@@ -169,9 +169,9 @@ class frontend( mainWin ):
 			return v
 
 		if self.data['OutputEnvmap'] == None:
-			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.RGB888 )
+			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
 		else:
-			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.RGBA8888 )
+			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
 		NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.UV88 )
 
 		targetDir = str( self.removeSuffix(Path(path)) )
