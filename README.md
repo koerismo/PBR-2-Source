@@ -1,4 +1,13 @@
 # PBR-2-Source
- A dumb tool to convert pbr materials into a source-compatible format.
+A Python-powered gui for converting pbr materials into Source Engine-compatible materials.
 
-**WARNING:** This entire application was cobbled together in one evening. There are probably going to be bugs.
+### Features
+- Supports PNG, JPG, BMP, and TGA input.
+- Automatically generates material VMTs.
+- Generates out-of-the-box functional materials.
+
+---
+
+*Demonstration of PBR-2-Source usage*
+
+![image](https://user-images.githubusercontent.com/56563658/147039843-04e730f7-b92d-4550-a7f0-7e57e529b484.png)
