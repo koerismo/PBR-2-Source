@@ -7,7 +7,7 @@ class mainWin( q.QWidget ):
 	def __init__( self ):
 		super().__init__()
 
-		self.setWindowTitle( 'PBR2Source' )
+		self.setWindowTitle( 'PBR-2-Source' )
 		self.resize( 600, 350 )
 
 		''' --------------- LAYOUT --------------- '''
