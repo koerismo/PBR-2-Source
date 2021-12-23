@@ -162,6 +162,7 @@ class frontend( mainWin ):
 		RoughnessTexture = self.data['ImageRoughness'].convert('RGB').resize( BaseTexture.size )
 
 		# Apply metallic to roughness, and add resulting specularity as a mask to basetexture. (ONLY IF REFLECTIONS ARE ENABLED AND NOT IN PBR MODE)
+		# There is probably a more accurate way to do this, but I don't know what that way is.
 		if self.data['OutputEnvmap'] != None and self.data['OutputShader'][0] != 'PBR':
 			RoughnessTexture = ImageChops.multiply( ImageChops.invert(RoughnessTexture), MetallicTexture )
 			BaseTexture = crossChannels( RoughnessTexture, 0, BaseTexture, 3 )
