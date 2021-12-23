@@ -60,7 +60,7 @@ class frontend( mainWin ):
 			def isPowerOfTwo( v ): return log2(v)%1 == 0
 			return isPowerOfTwo(img.width) and isPowerOfTwo(img.height)
 
-		if not checkImageSize( self.data['ImageDiffuse'] ):
+		if not checkImageSize( self.data['ImageDiffuse'] ) and not self.data['SizeOverride']:
 			msg = QErrorMessage( self )
 			msg.showMessage( 'Basetexture has a non-power of two size!' )
 			msg.activateWindow()
