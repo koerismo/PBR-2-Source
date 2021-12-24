@@ -111,7 +111,7 @@ class frontend( mainWin ):
 
 			if self.data['OutputShader'][0] == 'PBR':
 				vmt.writelines([
-					'    $mraotexxture         "'+vmtPathStr+'_mrao"\n',
+					'    $mraotexture          "'+vmtPathStr+'_mrao"\n',
 				])
 
 			# ENVMAP
