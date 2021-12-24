@@ -228,7 +228,7 @@ class frontend( mainWin ):
 				BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
 			else:
 				BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
-		NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.UV88 )
+		NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.DXT1 )
 
 		targetDir = str( self.removeSuffix(Path(path)) )
 
