@@ -1,5 +1,6 @@
 from PIL.ImageOps import flip
-from PySide6.QtWidgets import QApplication, QMessageBox, QErrorMessage, QFileDialog
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMessageBox, QErrorMessage, QFileDialog, QPushButton
 from gui import mainWin
 from pathlib import Path
 from math import log2
@@ -25,7 +26,8 @@ class frontend( mainWin ):
 			'ImageRoughness': None,
 			'ImageMetallic': None,
 			'ImageNormal': None,
-			'SizeOverride': False
+			'SizeOverride': False,
+			'VTFVersion': (7, 5)
 		}
 
 		self.exportBtn.setDisabled( True )
@@ -89,9 +91,15 @@ class frontend( mainWin ):
 		''' ---------- WRITE VMT ---------- '''
 		logging.info(' Creating VMT... ')
 
+		self.exportBtn.setDisabled( True )
+		#for child in self.findChildren( QPushButton, 'disableWhenExporting', Qt.FindChildrenRecursively ): child.setDisabled( True )
+
 		self.progressBar.setValue( 1 )
 
 		with open( path, 'w' ) as vmt:
+
+			# BASETEXTURE & BUMP
+
 			vmt.writelines([
 				'"'+self.data['OutputShader'][0]+'"\n',
 				'{\n',
@@ -99,22 +107,33 @@ class frontend( mainWin ):
 				'    $bumpmap              "'+vmtPathStr+'_bump"\n'
 			])
 
+			# MRAO
+
 			if self.data['OutputShader'][0] == 'PBR':
 				vmt.writelines([
 					'    $mraotexxture         "'+vmtPathStr+'_mrao"\n',
 				])
 
+			# ENVMAP
+
 			if self.data['OutputEnvmap'] != None:
 				vmt.writelines([
 					'\n',
 					'    $envmap               "'+self.data['OutputEnvmap']+'"\n',
-					'    $envmaptint           '+str(round(self.data['OutputReflectIntensity']/100,2))+'\n',
-					'    $envmaplightscale     0.98\n',
-					'    $basealphaenvmapmask  1\n',
+					'    $basealphaenvmapmask  1\n'
 				])
+				if self.data['OutputShader'][0] != 'PBR':
+					vmt.writelines([
+						'\n',
+						'    $envmaptint           '+str(round(self.data['OutputReflectIntensity']/100,2))+'\n',
+						'    $envmaplightscale     0.98\n'
+					])
+
+			# $MODEL
 
 			if self.data['OutputShader'][1]:
 				vmt.writelines([
+					'\n',
 					'    $model 1\n'
 				])
 			
@@ -197,7 +216,7 @@ class frontend( mainWin ):
 		self.progressBar.setValue( 4 )
 
 		def PILToVTF( img:Image, fmt ) -> VTF:
-			v = VTF( img.width, img.height, frames=1, fmt=fmt )
+			v = VTF( img.width, img.height, frames=1, fmt=fmt, version=self.data['VTFVersion'] )
 			v.get( frame=0 ).copy_from( img.convert('RGBA').tobytes() )
 			return v
 
@@ -233,6 +252,8 @@ class frontend( mainWin ):
 		msgBox.setText( 'Export successful!' )
 		msgBox.exec()
 
+		self.exportBtn.setDisabled( False )
+		#for child in self.findChildren( QPushButton, 'disableWhenExporting', Qt.FindChildrenRecursively ): child.setDisabled( False )
 		self.progressBar.reset()
 
 		

@@ -108,7 +108,14 @@ class mainWin( q.QWidget ):
 
 		def evalCustomShaderInput( x ):
 			if (ind := self.shaderInput.findText( x )) != -1:
-				self.setProperty( 'OutputShader', self.shaderInput.itemData(ind) )
+				dat = self.shaderInput.itemData(ind)
+				
+				# The PBR shader doesn't support this value, so just disable the slider and reset the value.
+				self.reflectIntensityInput.setDisabled( dat[0] == 'PBR' )
+				if dat[0] == 'PBR': self.reflectIntensityInput.setValue( 100 )
+				
+				self.setProperty( 'OutputShader', dat )
+
 			else:
 				self.setProperty( 'OutputShader', (x, False) )
 		self.shaderInput.currentTextChanged.connect( evalCustomShaderInput )
@@ -179,6 +186,7 @@ class mainWin( q.QWidget ):
 		self.resizeToInputLayout.setAlignment( QtCore.Qt.AlignLeft )
 		self.imageOptionsGroup.layout.addLayout( self.resizeToInputLayout )
 
+
 		self.resizeToInputLayout.addWidget( q.QLabel('Resize:') )
 
 		def handleResizeInputChange(x):
@@ -186,10 +194,24 @@ class mainWin( q.QWidget ):
 			else:      self.setProperty( 'SizeOverride', 32 * 2**x )
 
 		self.resizeToInput = q.QComboBox()
-		self.resizeToInput.addItems(['Don\'t Resize','64x','128x','256x','512x','1024x','2048x','4096x'])
+		self.resizeToInput.addItems([ 'Don\'t Resize','64x','128x','256x','512x','1024x','2048x','4096x' ])
 		self.resizeToInputLayout.addWidget( self.resizeToInput )
 		self.resizeToInput.currentIndexChanged.connect( handleResizeInputChange )
 
+		self.VTFVersionInputLayout = q.QHBoxLayout()
+		self.VTFVersionInputLayout.setAlignment( QtCore.Qt.AlignLeft )
+		self.imageOptionsGroup.layout.addLayout( self.VTFVersionInputLayout )
+
+		self.VTFVersionInputLayout.addWidget( q.QLabel('VTF Version:') )
+
+		def handleVTFVersionInputChange(x):
+			self.setProperty( 'VTFVersion', (7, x+1) )
+
+		self.vtfVersionInput = q.QComboBox()
+		self.vtfVersionInput.addItems([ 'v7.1','v7.2','v7.3','v7.4','v7.5' ])
+		self.vtfVersionInput.setCurrentIndex( 4 )
+		self.vtfVersionInput.currentIndexChanged.connect( handleVTFVersionInputChange )
+		self.VTFVersionInputLayout.addWidget( self.vtfVersionInput )
 
 		''' --------------- FOOTER --------------- '''
 
