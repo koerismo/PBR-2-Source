@@ -103,15 +103,15 @@ class frontend( mainWin ):
 			vmt.writelines([
 				'"'+self.data['OutputShader'][0]+'"\n',
 				'{\n',
-				'    $basetexture          "'+vmtPathStr+'_basecolor"\n',
-				'    $bumpmap              "'+vmtPathStr+'_bump"\n'
+				'	$basetexture               "'+vmtPathStr+'_basecolor"\n',
+				'	$bumpmap                   "'+vmtPathStr+'_bump"\n'
 			])
 
 			# MRAO
 
 			if self.data['OutputShader'][0] == 'PBR':
 				vmt.writelines([
-					'    $mraotexture          "'+vmtPathStr+'_mrao"\n',
+					'	$mraotexture               "'+vmtPathStr+'_mrao"\n',
 				])
 
 			# ENVMAP
@@ -119,14 +119,14 @@ class frontend( mainWin ):
 			if self.data['OutputEnvmap'] != None:
 				vmt.writelines([
 					'\n',
-					'    $envmap               "'+self.data['OutputEnvmap']+'"\n',
-					'    $basealphaenvmapmask  1\n'
+					'	$envmap                    "'+self.data['OutputEnvmap']+'"\n',
+					'	$normalmapalphaenvmapmask  1\n'
 				])
 				if self.data['OutputShader'][0] != 'PBR':
 					vmt.writelines([
 						'\n',
-						'    $envmaptint           '+str(round(self.data['OutputReflectIntensity']/100,2))+'\n',
-						'    $envmaplightscale     0.98\n'
+						'	$envmaptint                '+str(round(self.data['OutputReflectIntensity']/100,2))+'\n',
+						'	$envmaplightscale          0.98\n'
 					])
 
 			# $MODEL
@@ -162,14 +162,15 @@ class frontend( mainWin ):
 
 		# Register basetexture
 
-		BaseTexture = self.data['ImageDiffuse'].convert('RGB')
+		BaseTexture = self.data['ImageDiffuse'].convert('RGBA')
 		if self.data['SizeOverride']: BaseTexture = BaseTexture.resize( (self.data['SizeOverride'], self.data['SizeOverride']) )
 
 		# Register AO, Apply AO to basetexture
 
-		AOTexture = Image.new( 'RGB', BaseTexture.size, 255 )
+		AOTexture = Image.new( 'RGBA', BaseTexture.size, 255 )
 		if self.data.get('ImageAo') != None:
-			AOTexture = self.data['ImageAo'].convert('RGB').resize( BaseTexture.size )
+			# Replace the placeholder with the actual texture, but erase the alpha channel.
+			AOTexture = crossChannels(AOTexture, 3, self.data['ImageAo'].resize( BaseTexture.size ), 3)
 			
 			if self.data['OutputShader'][0] != 'PBR':
 				BaseTexture = ImageChops.multiply( BaseTexture, AOTexture )
@@ -179,12 +180,6 @@ class frontend( mainWin ):
 
 		# Register roughness
 		RoughnessTexture = self.data['ImageRoughness'].convert('RGB').resize( BaseTexture.size )
-
-		# Apply metallic to roughness, and add resulting specularity as a mask to basetexture. (ONLY IF REFLECTIONS ARE ENABLED AND NOT IN PBR MODE)
-		# There is probably a more accurate way to do this, but I don't know what that way is.
-		if self.data['OutputEnvmap'] != None and self.data['OutputShader'][0] != 'PBR':
-			RoughnessTexture = ImageChops.multiply( ImageChops.invert(RoughnessTexture), MetallicTexture )
-			BaseTexture = crossChannels( RoughnessTexture, 0, BaseTexture, 3 )
 
 		''' ---------- PROCESS MRAO (PBR) ---------- '''
 
@@ -209,6 +204,10 @@ class frontend( mainWin ):
 				return Image.merge( 'RGB', (r, g, b) )
 			NormalTexture = flipG( NormalTexture )
 
+		# Apply metallic to roughness, and add resulting specularity as a mask to normal map. (ONLY IF REFLECTIONS ARE ENABLED AND NOT IN PBR MODE)
+		if self.data['OutputEnvmap'] != None and self.data['OutputShader'][0] != 'PBR':
+			RoughnessTexture = ImageChops.multiply( ImageChops.invert(RoughnessTexture), MetallicTexture )
+			NormalTexture = crossChannels( RoughnessTexture, 0, NormalTexture, 3 )
 
 		''' ---------- CONVERT IMAGES ---------- '''
 		logging.info(' Converting images... ')
@@ -221,14 +220,14 @@ class frontend( mainWin ):
 			return v
 
 		if self.data['OutputShader'][0] == 'PBR':
-			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
+			NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.DXT1 )
 			MRAOTextureVTF = PILToVTF( MRAOTexture, VTFFormats.DXT1 )
 		else:
 			if self.data['OutputEnvmap'] == None:
-				BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
+				NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.RGB888 )
 			else:
-				BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
-		NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.DXT1 )
+				NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.RGBA8888 )
+		BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
 
 		targetDir = str( self.removeSuffix(Path(path)) )
 
