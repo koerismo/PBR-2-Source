@@ -27,7 +27,8 @@ class frontend( mainWin ):
 			'ImageMetallic': None,
 			'ImageNormal': None,
 			'SizeOverride': False,
-			'VTFVersion': (7, 5)
+			'VTFVersion': (7, 5),
+			'OutputDiffuseTransparency': False
 		}
 
 		self.exportBtn.setDisabled( True )
@@ -106,6 +107,13 @@ class frontend( mainWin ):
 				'	$basetexture               "'+vmtPathStr+'_basecolor"\n',
 				'	$bumpmap                   "'+vmtPathStr+'_bump"\n'
 			])
+
+			# TRANSPARENCY
+
+			if self.data['OutputDiffuseTransparency']:
+				vmt.writelines([
+					'	$translucent               1\n'
+				])
 
 			# MRAO
 
@@ -227,7 +235,11 @@ class frontend( mainWin ):
 				NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.RGB888 )
 			else:
 				NormalTextureVTF = PILToVTF( NormalTexture, VTFFormats.RGBA8888 )
-		BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
+		
+		if self.data['OutputDiffuseTransparency']:
+			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT5 )
+		else:
+			BaseTextureVTF = PILToVTF( BaseTexture, VTFFormats.DXT1 )
 
 		targetDir = str( self.removeSuffix(Path(path)) )
 

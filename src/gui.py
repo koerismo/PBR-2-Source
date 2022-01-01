@@ -182,6 +182,11 @@ class mainWin( q.QWidget ):
 		self.imageOptionsGroup.layout.addWidget( self.checkFlipY )
 
 
+		self.transparencyInput = q.QCheckBox( 'Enable Transparency' )
+		self.transparencyInput.stateChanged.connect( lambda x: self.setProperty('OutputDiffuseTransparency', bool(x)) )
+		self.imageOptionsGroup.layout.addWidget( self.transparencyInput )
+
+
 		self.resizeToInputLayout = q.QHBoxLayout()
 		self.resizeToInputLayout.setAlignment( QtCore.Qt.AlignLeft )
 		self.imageOptionsGroup.layout.addLayout( self.resizeToInputLayout )
