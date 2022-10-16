@@ -27,7 +27,7 @@ def phong_exponent( roughness: ImType ) -> ImType:
 	# This equation is based on nothing more than rough experimentation. Do not trust it!
 	def eq( val ):
 		val = max(val/255,0.001)
-		return round( (1.9 - 2.85 * log(val)) / 35 * 255 )
+		return round( (1.9 - 2.85 * log(val)) / 20 * 255 )
 	return Image.eval( roughness, eq )
 
 
@@ -35,7 +35,7 @@ def phong_intensity( roughness: ImType ) -> ImType:
 	# This equation is based on nothing more than rough experimentation. Do not trust it!
 	def eq( val ):
 		val = max(val/255,0.001)
-		return round( (-(3.1*(val-0.3))**3 + 15*val + 10*(1-val)**16) / 35 * 255 )
+		return round( (15 - (5*val-2.15)**2 - 19*(1-val)**2 + (1.2-val)**18) / 20 * 255 )
 	return Image.eval( roughness, eq )
 
 
