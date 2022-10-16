@@ -1,2 +1,4 @@
+/src/test/
 
+.DS_Store
 *.pyc
