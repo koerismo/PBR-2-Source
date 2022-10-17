@@ -117,16 +117,13 @@ def compile_textures(
 
 	for (name, image) in images.items():
 		if image == None:
-			print( 'Skipping', name )
+			log.debug( 'Skipping', name )
 			continue
 
 		is_compressed = compress_albedo if name == 'basetexture' else compress
 		target_format = formats_compressed[image.mode] if is_compressed else formats_uncompressed[image.mode]
 		
-		print( 'Exporting', name, 'with target format', target_format )
-		images_compiled[mat_name+'_'+name] = image #imagemix.convert_image( image, target_format )
+		log.debug( 'Exporting', name, 'with target format', target_format )
+		images_compiled[mat_name+'_'+name] = imagemix.convert_image( image, target_format )
 
-	print( '\nDUMPING INFO' )
-	for (k, v) in info.items(): print( k, '\t= ', v )
-	
 	return vmt, images_compiled
