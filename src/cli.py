@@ -86,7 +86,7 @@ modes = {
 
 path_src = Path( args.source )
 path_target = Path( args.target ) if args.target else path_src
-mat_path = Path ( '/' )
+mat_path = Path( '/' )
 if not path_src.is_file() or not path_src.exists():
 	print( 'Source file must be defined!' )
 	exit(1)
@@ -124,7 +124,7 @@ vmt, images = imagecore.compile_textures(
 	envmap='env_cubemap',
 	phong=curpreset['phong'],
 	parallax=curpreset['parallax'],
-	alpha=0,
+	alpha=(img.mode == 'RGBA' or img.mode == 'LA' or img.mode == 'PA'),
 
 	resize=None,
 	resize_albedo=None,

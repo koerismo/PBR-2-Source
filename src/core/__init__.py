@@ -83,7 +83,7 @@ def compile_textures(
 	bump		= imagemix.make_bump( normal, height if info['height_embedded_normal'] else p_intensity if info['phong_embedded_normal'] else None, invert_y=invert_y )
 
 	basecolor	= imagemix.make_basecolor(
-		albedo, ao,
+		albedo, ao if not pbr else None,
 		emit if info['emit_embedded_albedo'] else None,
 		p_intensity if info['phong_embedded_albedo'] else None, burn_emit=burn_emit )
 
