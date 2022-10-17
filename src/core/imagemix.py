@@ -26,16 +26,19 @@ def validate( img: ImType ):
 def phong_exponent( roughness: ImType ) -> ImType:
 	# This equation is based on nothing more than rough experimentation. Do not trust it!
 	def eq( val ):
-		val = max(val/255,0.001)
-		return round( (1.9 - 2.85 * log(val)) / 20 * 255 )
+		if val == 0: return 0
+		val /= 255
+		return int( 0.4 + 1.33/((val+0.042)**1.14) / 25 * 255 )
 	return Image.eval( roughness, eq )
 
 
 def phong_intensity( roughness: ImType ) -> ImType:
 	# This equation is based on nothing more than rough experimentation. Do not trust it!
 	def eq( val ):
-		val = max(val/255,0.001)
-		return round( (15 - (5*val-2.15)**2 - 19*(1-val)**2 + (1.2-val)**18) / 20 * 255 )
+		# TODO: Would smooth min help image quality?
+		val /= 255
+		vcomp = 1 + 2.99*(val-1)**2
+		return int( min( 11*val, vcomp ) / 2.701 * 255 )
 	return Image.eval( roughness, eq )
 
 
