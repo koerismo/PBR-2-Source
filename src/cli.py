@@ -47,6 +47,7 @@ preset_pbr_model = {
 preset_pbr_brush = {
 	'model':		False,
 	'pbr':			True,
+	'resize_albedo':	(512,512),
 }
 
 preset_model = {
@@ -126,8 +127,8 @@ vmt, images = imagecore.compile_textures(
 	parallax=curpreset['parallax'],
 	alpha=(img.mode == 'RGBA' or img.mode == 'LA' or img.mode == 'PA'),
 
-	resize=None,
-	resize_albedo=None,
+	resize=curpreset['resize'],
+	resize_albedo=curpreset['resize_albedo'],
 
 	compress=False,
 	compress_albedo=False,

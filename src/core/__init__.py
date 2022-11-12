@@ -61,6 +61,7 @@ def compile_textures(
 
 	albedo_size	= resize_albedo or albedo.size
 	other_size	= resize or albedo.size
+	phong_size  = albedo_size if info['phong_embedded_albedo'] else other_size
 
 	log.debug( 'Preparing images...' )
 
@@ -69,8 +70,8 @@ def compile_textures(
 	ao			= imagemix.validate(ao).resize( other_size if pbr else albedo_size ).convert( 'L' ) if ao else None
 
 	# Resize other maps to appropriate sizes
-	roughness	= imagemix.validate(roughness).resize( other_size ).convert( 'L' )
-	metallic	= imagemix.validate(metallic).resize( other_size ).convert( 'L' )
+	roughness	= imagemix.validate(roughness).resize( phong_size ).convert( 'L' )
+	metallic	= imagemix.validate(metallic).resize( phong_size ).convert( 'L' )
 	normal		= imagemix.validate(normal).resize( other_size ).convert( 'RGB' )
 	height		= imagemix.validate(height).resize( other_size ).convert( 'L' ) if height else None
 
