@@ -3,6 +3,7 @@ log = logging.Logger( 'ImageCore', logging.DEBUG )
 
 from pathlib import PurePath
 from PIL.Image import Image as ImType
+from PIL import Image
 from srctools.vtf import ImageFormats as VIF
 from . import vmtgen, imagemix
 
@@ -12,7 +13,7 @@ def compile_textures(
 		albedo: ImType,
 		ao: ImType|None,
 		roughness: ImType,
-		metallic: ImType,
+		metallic: ImType|None,
 		normal: ImType,
 		emit: ImType|None,
 		height: ImType|None,
@@ -39,7 +40,7 @@ def compile_textures(
 	assert isinstance( path, PurePath )
 	assert isinstance( albedo, ImType )
 	assert isinstance( roughness, ImType )
-	assert isinstance( metallic, ImType )
+	if metallic: assert isinstance( metallic, ImType )
 	assert isinstance( normal, ImType )
 	if ao: assert isinstance( ao, ImType )
 	if emit: assert isinstance( emit, ImType )
@@ -48,7 +49,7 @@ def compile_textures(
 	if not path.suffix: raise Exception( 'Path provided must reference a vmt file!' )
 
 	log.debug( 'Generating vmt...' )
-	
+
 	vmt, info = vmtgen.generate_vmt(
 		path,
 		model,
@@ -71,7 +72,7 @@ def compile_textures(
 
 	# Resize other maps to appropriate sizes
 	roughness	= imagemix.validate(roughness).resize( phong_size ).convert( 'L' )
-	metallic	= imagemix.validate(metallic).resize( phong_size ).convert( 'L' )
+	metallic	= imagemix.validate(metallic).resize( phong_size ).convert( 'L' ) if metallic else Image.new('L', phong_size, 0)
 	normal		= imagemix.validate(normal).resize( other_size ).convert( 'RGB' )
 	height		= imagemix.validate(height).resize( other_size ).convert( 'L' ) if height else None
 
@@ -112,7 +113,7 @@ def compile_textures(
 		'emit':			emit,
 		'exp':			p_exponent,
 	}
-	
+
 	mat_name = path.name[:-len(path.suffix)]
 	images_compiled = {}
 
@@ -123,7 +124,7 @@ def compile_textures(
 
 		is_compressed = compress_albedo if name == 'basetexture' else compress
 		target_format = formats_compressed[image.mode] if is_compressed else formats_uncompressed[image.mode]
-		
+
 		log.debug( 'Exporting', name, 'with target format', target_format )
 		images_compiled[mat_name+'_'+name] = imagemix.convert_image( image, target_format )
 

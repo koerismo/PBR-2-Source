@@ -73,6 +73,16 @@ mode_substance = {
 	'rough':	'_roughness.png',
 }
 
+mode_ambientcg = {
+	'albedo':	'_Color.png',
+	'ao':		'_AmbientOcclusion.png', # FIX
+	'emit':		'_Emission.png', # FIX
+	'height':	'_Displacement.png',
+	'metallic':	'_Metallic.png', # FIX
+	'normal':	'_NormalDX.png',
+	'rough':	'_Roughness.png',
+}
+
 presets = {
 	'default': preset_default,
 	'pbr-brush': preset_pbr_brush,
@@ -83,6 +93,7 @@ presets = {
 
 modes = {
 	'substance': mode_substance,
+	'ambientcg': mode_ambientcg,
 }
 
 path_src = Path( args.source )
@@ -107,7 +118,7 @@ for k, v in curmode.items():
 	p: Path = path_src.parent / (matname+v)
 	if p.exists(): files[k] = p
 
-if len(({'albedo','metallic','rough','normal'}).difference(set(files))):
+if len(({'albedo','rough','normal'}).difference(set(files))):
 	print( 'Albedo/normal/roughness/metallic texture must be present!' )
 	exit(1)
 
@@ -135,7 +146,7 @@ vmt, images = imagecore.compile_textures(
 
 	burn_emit=False,
 	invert_y=False,
-	
+
 	albedo=files['albedo'],
 	ao=files['ao'],
 	roughness=files['rough'],

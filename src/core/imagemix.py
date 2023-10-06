@@ -2,11 +2,10 @@ from math import log2, log
 import numpy as np
 from PIL import Image, ImageChops
 from PIL.Image import Image as ImType
-from srctools.vtf import VTF
+from srctools.vtf import VTF, VTFFlags, ImageFormats
 
 
 def validate( img: ImType ):
-	
 	# We have to do this to ensure that int32 images are converted correctly.
 	if img.mode == 'I':
 		img_bytes = img.tobytes()
@@ -16,7 +15,7 @@ def validate( img: ImType ):
 
 		out_bytes = arr.astype( np.uint8 )
 		return Image.frombytes( 'L', img.size, out_bytes.tobytes() )
-	
+
 	if img.mode == 'P':
 		return img.convert( 'RGB' )
 
@@ -29,6 +28,9 @@ def phong_exponent( roughness: ImType ) -> ImType:
 		if val == 0: return 0
 		val /= 255
 		return int( 0.4 + 1.33/((val+0.042)**1.14) / 25 * 255 )
+		# return int(
+		# 	((1-val)**9 / 1.1 - (val/10) + 0.1)  *  255
+		# )
 	return Image.eval( roughness, eq )
 
 
@@ -74,7 +76,11 @@ def combine_mrao( metallic: ImType, roughness: ImType, ao: ImType ) -> ImType:
 
 
 def convert_image( image: ImType, format: any ):
-	vtf = VTF( image.width, image.height, fmt=format )
+	flags = VTFFlags(0)
+	print(format, format in (ImageFormats.RGBA8888, ImageFormats.DXT5, ImageFormats.BGRA8888, ImageFormats.A8))
+	if format in (ImageFormats.RGBA8888, ImageFormats.DXT5, ImageFormats.BGRA8888, ImageFormats.A8): flags.EIGHTBITALPHA = True
+
+	vtf = VTF( image.width, image.height, fmt=format, flags=flags )
 	vtf.mipmap_count = int(log2(min(image.size)) - 2)
 	vtf.get().copy_from( image.convert('RGBA').tobytes() )
 	return vtf
