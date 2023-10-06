@@ -18,6 +18,8 @@ def make_vmt(mat: Material) -> Keyvalues:
 			vmt["$envmapmask"]					= mat.name + "_envmask"
 			vmt["$phongexponenttexture"]		= mat.name + "_phong"
 			vmt["$fresnelreflection"]			= 1
+			vmt["$envmaplightscale"]			= 1
+			vmt["$envmaplightscaleminmax"]		= "[0 1.1]"
 			vmt["$normalmapalphaenvmapmask"]	= 1
 
 			if mat.mode == MaterialMode.PhongEnvmapEmit:
