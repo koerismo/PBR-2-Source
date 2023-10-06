@@ -1,4 +1,5 @@
 /src/test/
+venv/
 
 .DS_Store
 *.pyc
