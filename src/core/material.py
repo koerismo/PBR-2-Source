@@ -10,38 +10,39 @@ class MaterialMode(IntEnum):
 
 class Material:
 	mode: MaterialMode
-	size: (int, int)
+	size: tuple[int, int]
 	name: str
 
-	albedo: Image|None		# Linear RGB
-	specular: Image|None	# Linear RGB
-	glossy: Image|None		# Linear L
+	albedo: Image			# Linear RGB
+	specular: Image			# Linear RGB
+	glossy: Image			# Linear L
 	emit: Image|None		# Linear RGB
 	ao: Image|None			# Linear L
 
-	normal: Image|None		# Linear XYZ
+	normal: Image			# Linear XYZ
 	height: Image|None		# Linear L
 
 	def __init__(self,
 			mode: MaterialMode,
-			size: (int, int),
+			size: tuple[int, int],
 			name: str,
 
-			albedo: Image=None,
-			specular: Image=None,
-			glossy: Image=None,
-			emit: Image=None,
-			ao: Image=None,
-			
-			normal: Image=None,
-			height: Image=None):
+			albedo: Image,
+			specular: Image,
+			glossy: Image,
+			emit: Image|None,
+			ao: Image|None,
+
+			normal: Image,
+			height: Image|None):
 
 		self.mode = mode
 		self.size = size
+		self.name = name
 
 		self.albedo = albedo
-		self.glossy = glossy
 		self.specular = specular
+		self.glossy = glossy
 		self.emit = emit
 		self.ao = ao
 

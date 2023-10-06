@@ -1,16 +1,23 @@
 from PIL.Image import Image
 import PIL.Image, PIL.ImageChops, PIL.ImageColor, PIL.ImageCms
 import numpy as np
-from material import Material, MaterialMode
+from srctools.vtf import VTF
+from .material import Material, MaterialMode
 
 '''
 References:
 - https://marmoset.co/posts/pbr-texture-conversion/
 - https://cgobsession.com/complete-guide-to-texture-map-types/
-- https://metzgar-research.com/games/conversion-between-specular-exponent-specular-roughness-and-specular-glossiness/
 '''
 
-def normalize(img: Image):
+'''
+	basetexture   = (1 - ((1-roughness) * metallic)) * albedo
+	envmaptint    = (metallic * 0.75 + 0.25) * ((1-roughness)**5)
+	phongexponent = (0.2 / (roughness**3)) * 4
+	phongmask     = ((1-roughness)**4.8) * 2
+'''
+
+def normalize(img: Image, size: tuple[int, int]|None=None):
 	''' Normalizes an input image to function with other operations. '''
 
 	if img.mode == 'I':
@@ -25,10 +32,13 @@ def normalize(img: Image):
 	elif img.mode == 'P':
 		img = img.convert( 'RGB' )
 
+	if size:
+		img = img.resize(size)
+
 	return img
 
 
-def convert_albedo_specular(albedo: Image, metal: Image) -> Image:
+def convert_albedo_specular(albedo: Image, metal: Image) -> tuple[Image, Image]:
 	''' Converts albedo/metallic textures to albedo/specular textures. '''
 	return (
 		PIL.ImageChops.multiply(albedo, PIL.ImageChops.invert(metal)),
@@ -41,17 +51,17 @@ def convert_glossy(rough: Image) -> Image:
 	return PIL.ImageChops.invert(rough)
 
 
-def make_phong_exponent(mat: Material) -> (Image, Image):
+def make_phong_exponent(mat: Material) -> tuple[Image, Image]:
 	''' Generates phong exponent/intensity textures. '''
 
 	assert mat.specular != None
 	assert mat.glossy != None
 
 	def glossy_to_exp(x: int):
-		x /= 255
-		x = 2 / ((1 - x)**2) - 2
-		return int(x * 255)
-	
+		f = x / 255
+		f = 2 / ((1 - f)**2) - 2
+		return int(f * 255)
+
 	def specular_to_intensity(x: int):
 		return x
 
@@ -61,5 +71,8 @@ def make_phong_exponent(mat: Material) -> (Image, Image):
 	)
 
 
-def make_bump(mat: Material) -> Image:
-	pass
+def make_basecolor(mat: Material) -> Image:
+	''' Creates a basetexture from a material. '''
+	if mat.mode < 2 and mat.ao is not None: return PIL.ImageChops.multiply(mat.albedo, mat.ao)
+	return mat.albedo
+
