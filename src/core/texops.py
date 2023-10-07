@@ -38,24 +38,27 @@ def normalize(img: Image, size: tuple[int, int]|None=None):
 	return img
 
 
-def convert_albedo_specular(albedo: Image, metal: Image) -> tuple[Image, Image]:
-	''' Converts albedo/metallic textures to albedo/specular textures. '''
-	return (
-		PIL.ImageChops.multiply(albedo, PIL.ImageChops.invert(metal)),
-		PIL.Image.composite(PIL.Image.new('L', albedo.size, 0.04), albedo, metal)
-	)
+# def convert_albedo_metallic(albedo: Image, specular: Image) -> tuple[Image, Image]:
+# 	''' Converts albedo/specular textures to albedo/metallic textures. '''
+# 	return (
+# 		PIL.ImageChops.multiply(albedo, PIL.ImageChops.invert(specular)),
+# 		PIL.Image.composite(PIL.Image.new('L', albedo.size, 0.04), albedo, specular)
+# 	)
 
 
-def convert_glossy(rough: Image) -> Image:
-	''' Converts a roughness texture to a glossiness texture. '''
-	return PIL.ImageChops.invert(rough)
+# def convert_glossy(rough: Image) -> Image:
+# 	''' Converts a roughness texture to a glossiness texture. '''
+# 	return PIL.ImageChops.invert(rough)
 
 
-def make_phong_exponent(mat: Material) -> tuple[Image, Image]:
+def make_phong(mat: Material) -> tuple[Image, Image]:
 	''' Generates phong exponent/intensity textures. '''
 
-	assert mat.specular != None
-	assert mat.glossy != None
+	# "The Phong exponent texture [...] red channel defines the Phong exponent value and the green for albedo tinting.
+	# [...] albedo tinting is a "work in progress" feature and currently un-supported in the current shader in some branches."
+
+	assert mat.metallic != None
+	assert mat.roughness != None
 
 	def glossy_to_exp(x: int):
 		f = x / 255

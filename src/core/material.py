@@ -14,8 +14,8 @@ class Material:
 	name: str
 
 	albedo: Image			# Linear RGB
-	specular: Image			# Linear RGB
-	glossy: Image			# Linear L
+	roughness: Image			# Linear L
+	metallic: Image			# Linear L
 	emit: Image|None		# Linear RGB
 	ao: Image|None			# Linear L
 
@@ -28,8 +28,8 @@ class Material:
 			name: str,
 
 			albedo: Image,
-			specular: Image,
-			glossy: Image,
+			roughness: Image,
+			metallic: Image,
 			emit: Image|None,
 			ao: Image|None,
 
@@ -41,10 +41,18 @@ class Material:
 		self.name = name
 
 		self.albedo = albedo
-		self.specular = specular
-		self.glossy = glossy
+		self.roughness = roughness
+		self.metallic = metallic
 		self.emit = emit
 		self.ao = ao
 
 		self.normal = normal
 		self.height = height
+
+class Texture():
+	image: Image
+	path: str
+
+	def __init__(self, image: Image, path: str) -> None:
+		self.image = image
+		self.path = path
