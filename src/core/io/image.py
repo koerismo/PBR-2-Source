@@ -3,9 +3,7 @@ import numpy as np
 from numpy.typing import DTypeLike
 from pathlib import Path
 import PIL.Image
-from typing import Union, Literal
-
-amogus = Literal["RGB","L"]
+from typing import Literal
 
 class Image():
 	'''

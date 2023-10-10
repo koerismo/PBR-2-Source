@@ -11,11 +11,10 @@ from pathlib import Path
 from argparse import ArgumentParser
 from .core.io.image import Image
 
+import core.io.vtf
 import core.convert as Convert
 import core.material as Material
 import core.vmt as Vmt
-
-from srctools.vtf import VTF, VTFFlags
 
 
 parser = ArgumentParser( 'PBR-2-Source CLI', description='(BETA) A command line interface for PBR-2-Source.' )
@@ -130,21 +129,12 @@ for k, v in curmode.items():
 	else:
 		files[k] = Image( path_src.parent / (matname+v) )
 
-
-def make_vtf(img: Image):
-	width, height = img.size
-	v = VTF(width, height)
-	v.get().copy_from(img.tobytes('uint8'))
-	return v
-
 mat = Convert.from_images(files, "testy", Material.MaterialMode.PhongEnvmap)
 images = Convert.export(mat)
 
-
 for tex in images:
 	# tex.image.save("test/amogus"+tex.name+".png", optimize=False)
-	with open( 'test/tiles' + (tex.name+'.vtf'), 'wb' ) as file:
-		make_vtf(tex.image).save( file )
+	tex.image.save('test/tiles' + (tex.name+'.vtf'))
 
 	vmt = Vmt.make_vmt(mat)
 	with open( 'test/tiles.vmt', 'w') as file:
