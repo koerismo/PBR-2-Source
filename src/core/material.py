@@ -1,4 +1,4 @@
-from PIL.Image import Image
+from .io.image import Image
 from enum import IntEnum
 
 class MaterialMode(IntEnum):
@@ -13,14 +13,14 @@ class Material:
 	size: tuple[int, int]
 	name: str
 
-	albedo: Image			# Linear RGB
-	roughness: Image			# Linear L
-	metallic: Image			# Linear L
-	emit: Image|None		# Linear RGB
-	ao: Image|None			# Linear L
+	albedo: Image			# Linear RGBAf
+	roughness: Image		# Linear f
+	metallic: Image			# Linear f
+	emit: Image|None		# Linear RGBf
+	ao: Image|None			# Linear f
 
-	normal: Image			# Linear XYZ
-	height: Image|None		# Linear L
+	normal: Image			# Linear RGBAf
+	height: Image|None		# Linear f
 
 	def __init__(self,
 			mode: MaterialMode,

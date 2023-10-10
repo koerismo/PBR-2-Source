@@ -9,7 +9,7 @@ if __name__ != '__main__':
 
 from pathlib import Path
 from argparse import ArgumentParser
-from PIL import Image
+from .core.io.image import Image
 
 import core.convert as Convert
 import core.material as Material
@@ -128,14 +128,13 @@ if len(({'albedo','roughness','normal'}).difference(set(files))):
 for k, v in curmode.items():
 	if k not in files: files[k] = None
 	else:
-		img = Image.open( path_src.parent / (matname+v) )
-		img.load()
-		files[k] = img
+		files[k] = Image( path_src.parent / (matname+v) )
 
 
-def make_vtf(img: Image.Image):
-	v = VTF(img.width, img.height)
-	v.get().copy_from(img.convert('RGBA').tobytes())
+def make_vtf(img: Image):
+	width, height = img.size
+	v = VTF(width, height)
+	v.get().copy_from(img.tobytes('uint8'))
 	return v
 
 mat = Convert.from_images(files, "testy", Material.MaterialMode.PhongEnvmap)

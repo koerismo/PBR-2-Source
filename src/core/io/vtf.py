@@ -1,4 +1,4 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict
 from imageio.core.request import Request
 from imageio.typing import ArrayLike
 import imageio.core as imcore
@@ -8,9 +8,9 @@ import numpy as np
 import srctools.vtf as vtf
 
 
-class VtfFormat(imcore.Format):
+class VtfFormat(imcore.format.Format):
 
-	def __init__(self, name: str, description: str, extensions: str|list|tuple|None = None, modes: str|None = None) -> None:
+	def __init__(self, name: str, description: str, extensions: str|list|tuple|None, modes: str) -> None:
 		super().__init__(name, description, extensions, modes)
 
 	def _can_read(self, request: Request) -> bool:
@@ -20,7 +20,7 @@ class VtfFormat(imcore.Format):
 		return request.extension in self.extensions
 
 
-	class Writer(imcore.Format.Writer):
+	class Writer(imcore.format.Format.Writer):
 
 		def _open(self, **kwargs) -> None:
 			self.file = self.request.get_file()

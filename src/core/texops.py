@@ -1,6 +1,7 @@
-from PIL.Image import Image
-import PIL.Image
-from PIL import ImageChops
+# from PIL.Image import Image
+# import PIL.Image
+# from PIL import ImageChops
+from .io.image import Image
 import numpy as np
 from .material import Material, MaterialMode
 
@@ -20,20 +21,23 @@ References:
 def normalize(img: Image, size: tuple[int, int]|None=None):
 	''' Normalizes an input image to function with other operations. '''
 
-	if img.mode == 'I':
-		img_bytes = img.tobytes()
+	# All of this code is necessary to ensure that PIL imports work,
+	# but I do not yet know if the same issues apply to imageio.
 
-		arr = np.frombuffer( img_bytes, dtype=np.int32 ).astype( np.float32 )
-		arr /= 256
+	# if img.mode == 'I':
+	# 	img_bytes = img.tobytes()
 
-		out_bytes = arr.astype( np.uint8 )
-		img = PIL.Image.frombytes( 'L', img.size, out_bytes.tobytes() )
+	# 	arr = np.frombuffer( img_bytes, dtype=np.int32 ).astype( np.float32 )
+	# 	arr /= 256
 
-	elif img.mode == 'P':
-		img = img.convert( 'RGB' )
+	# 	out_bytes = arr.astype( np.uint8 )
+	# 	img = PIL.Image.frombytes( 'L', img.size, out_bytes.tobytes() )
 
-	if size:
-		img = img.resize(size)
+	# elif img.mode == 'P':
+	# 	img = img.convert( 'RGB' )
+
+	# if size:
+	# 	img = img.resize(size)
 
 	return img
 
@@ -46,16 +50,11 @@ def make_phong_exponent(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	MAX_EXPONENT = 4 # $phongexponentfactor 8
-
-	arr = np.asarray(mat.roughness.convert('F')) / 255
-	arr = (0.8 / arr / MAX_EXPONENT)
-	arr.clip(0, MAX_EXPONENT)
-
-	exponent_r = PIL.Image.fromarray(arr * 255, 'F').convert('L')
-	exponent_g = PIL.Image.new('L', mat.size, 255)
-	exponent_b = PIL.Image.new('L', mat.size, 0)
-	exponent = PIL.Image.merge('RGB', (exponent_r, exponent_g, exponent_b))
+	# MAX_EXPONENT = 1 # $phongexponentfactor 1
+	exponent_r = mat.roughness.copy().pow(-3).mult(0.8) # .div(MAX_EXPONENT)
+	exponent_g = Image.blank(mat.size, color=(1,))
+	exponent_b = Image.blank(mat.size, color=(0,))
+	exponent = Image.merge((exponent_r, exponent_g, exponent_b))
 
 	return exponent
 
@@ -65,23 +64,20 @@ def make_phong_mask(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	arr = np.asarray(mat.roughness.convert('F'))
-	arr = (1 - arr)**5 * 2
-
-	mask = PIL.Image.fromarray(arr, 'F').convert('L')
-	if mat.ao: mask = ImageChops.multiply(mask, mat.ao)
-
+	mask = mat.roughness.copy().invert().pow(5).mult(2)
+	if mat.ao: mask.mult(mat.ao)
 	return mask
 
 
 def make_envmask(mat: Material) -> Image:
 	''' Creates an envmapmask texture from a material. '''
 
-	metallic = np.asarray(mat.metallic.convert('F')) / 255
-	roughness = np.asarray(mat.roughness.convert('F')) / 255
-	tint = (metallic * 0.75 + 0.25) * (1 - roughness)**5
+	assert mat.metallic != None
+	assert mat.roughness != None
 
-	return PIL.Image.fromarray(tint * 255, 'F').convert('L')
+	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
+	mask2 = mat.roughness.copy().invert().pow(5)
+	return mask1.mult(mask2)
 
 
 def make_basecolor(mat: Material) -> Image:
@@ -91,21 +87,16 @@ def make_basecolor(mat: Material) -> Image:
 	assert mat.roughness != None
 	assert mat.albedo != None
 
-	# This was actually painful to write. Fix later.
-	basetexture = ImageChops.multiply(
-		ImageChops.invert(
-			ImageChops.multiply(
-				ImageChops.invert(
-					mat.roughness
-				),
-				mat.metallic
-			)
-		).convert(mat.albedo.mode),
-		mat.albedo)
-	if mat.mode > 1 and mat.ao is not None: basetexture = ImageChops.multiply(basetexture, mat.ao.convert(mat.albedo.mode))
+	mask = mat.roughness.copy().invert()
+	mask.mult(mat.metallic)
+	mask.invert()
+	mask.mult(mat.albedo)
+
+	if mat.mode > 1 and mat.ao is not None: mask.mult(mat.ao)
+	basetexture = mat.albedo.copy().mult(mask)
 
 	if mat.mode == MaterialMode.PhongEnvmap:
-		basetexture.putalpha(make_envmask(mat))
+		basetexture = Image.merge((*basetexture.split(), make_envmask(mat)))
 
 	return basetexture
 
@@ -116,8 +107,9 @@ def make_bumpmap(mat: Material) -> Image:
 	if mat.mode < 2: return mat.normal
 
 	(r, g, b) = mat.normal.split()
-	bump = PIL.Image.merge('RGB', (r, ImageChops.invert(g), b))
-	bump.putalpha(make_phong_mask(mat))
+	g.invert()
+	a = make_phong_mask(mat)
+	bump = Image.merge((r, g, b, a))
 
 	return bump
 
@@ -125,5 +117,5 @@ def make_bumpmap(mat: Material) -> Image:
 def make_mrao(mat: Material) -> Image:
 	''' Generates a RGB MRAO texture. '''
 
-	ao = mat.ao or PIL.Image.new('L', mat.size, 255)
-	return PIL.Image.merge('RGB', (mat.metallic, mat.roughness, ao))
+	ao = mat.ao or Image.blank(mat.size, color=(1,))
+	return Image.merge((mat.metallic, mat.roughness, ao))

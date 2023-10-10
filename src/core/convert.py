@@ -1,7 +1,8 @@
-from PIL.Image import Image
-import PIL.Image
+# from PIL.Image import Image
+# import PIL.Image
 from .material import Material, MaterialMode, Texture
 from . import texops
+from .io.image import Image
 
 def from_images(src: dict[str, Image], name: str, mode: MaterialMode) -> "Material":
 	albedo = src.get('albedo')
@@ -14,7 +15,7 @@ def from_images(src: dict[str, Image], name: str, mode: MaterialMode) -> "Materi
 
 	metallic = src.get('metallic')
 	if metallic is None:
-		metallic = PIL.Image.new('L', normal.size, 0)
+		metallic = Image.blank(normal.size, (0,))
 
 	emit = src.get('emit')
 	ao = src.get('ao')
