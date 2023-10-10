@@ -2,7 +2,8 @@
 # import PIL.Image
 # from PIL import ImageChops
 from .io.image import Image
-import numpy as np
+from typing import Literal
+from numpy.typing import DTypeLike
 from .material import Material, MaterialMode
 
 '''
@@ -18,7 +19,7 @@ References:
 	phongmask     = ((1-roughness)^5.4) * 2
 '''
 
-def normalize(img: Image, size: tuple[int, int]|None=None):
+def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'RGB', 'RGBA']|None=None):
 	''' Normalizes an input image to function with other operations. '''
 
 	# All of this code is necessary to ensure that PIL imports work,
@@ -36,8 +37,11 @@ def normalize(img: Image, size: tuple[int, int]|None=None):
 	# elif img.mode == 'P':
 	# 	img = img.convert( 'RGB' )
 
-	# if size:
-	# 	img = img.resize(size)
+	if size:
+		img = img.resize(size)
+
+	if mode:
+		img = img.convert('float32').normalize(mode)
 
 	return img
 

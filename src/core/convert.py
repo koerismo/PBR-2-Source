@@ -25,13 +25,13 @@ def from_images(src: dict[str, Image], name: str, mode: MaterialMode) -> "Materi
 		mode,
 		normal.size,
 		name,
-		albedo=texops.normalize(albedo).convert('RGB'),
-		roughness=texops.normalize(roughness, normal.size),
-		metallic=texops.normalize(metallic, normal.size),
-		emit=texops.normalize(emit, albedo.size) if emit else None,
-		ao=texops.normalize(ao, albedo.size) if ao else None,
-		normal=texops.normalize(normal),
-		height=texops.normalize(height, normal.size) if height else None
+		albedo=texops.normalize(albedo, mode='RGB'),
+		roughness=texops.normalize(roughness, normal.size, mode='L'),
+		metallic=texops.normalize(metallic, normal.size, mode='L'),
+		emit=texops.normalize(emit, albedo.size, mode='L') if emit else None,
+		ao=texops.normalize(ao, albedo.size, mode='L') if ao else None,
+		normal=texops.normalize(normal, mode='RGB'),
+		height=texops.normalize(height, normal.size, mode='L') if height else None
 	)
 
 def export(src: Material) -> list[Texture]:
