@@ -51,8 +51,8 @@ class Material:
 
 class Texture():
 	image: Image
-	path: str
+	name: str
 
-	def __init__(self, image: Image, path: str) -> None:
+	def __init__(self, image: Image, name: str) -> None:
 		self.image = image
-		self.path = path
+		self.name = name

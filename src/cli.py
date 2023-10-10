@@ -7,17 +7,20 @@ if __name__ != '__main__':
 	print( 'CLI cannot be run as module!' )
 	exit(1)
 
-
-from re import M
-import core as imagecore, os
 from pathlib import Path
 from argparse import ArgumentParser
 from PIL import Image
 
+import core.convert as Convert
+import core.material as Material
+import core.vmt as Vmt
+
+from srctools.vtf import VTF, VTFFlags
+
 
 parser = ArgumentParser( 'PBR-2-Source CLI', description='(BETA) A command line interface for PBR-2-Source.' )
 parser.add_argument( 'source' )
-parser.add_argument( '--target', dest='target', default=None, help='The output directory for materials. If none is provided, it will default to the source directory.' )
+parser.add_argument( '--target', dest='target', default=None, help='The output path. If none is provided, it will default to the source file names.' )
 parser.add_argument( '--mode', default='substance', help='What patterns the program should use to search for the texture files.', dest='mode' )
 parser.add_argument( '--preset', default='default', help='What preset the program should use to determine the output parameters.', dest='preset' )
 # parser.add_argument( '--onlyvmt', action='store_true', help='Only generates the vmt.' )
@@ -74,13 +77,13 @@ mode_substance = {
 }
 
 mode_ambientcg = {
-	'albedo':	'_Color.png',
-	'ao':		'_AmbientOcclusion.png', # FIX
-	'emit':		'_Emission.png', # FIX
-	'height':	'_Displacement.png',
-	'metallic':	'_Metallic.png', # FIX
-	'normal':	'_NormalDX.png',
-	'rough':	'_Roughness.png',
+	'albedo':		'_Color.png',
+	'ao':			'_AmbientOcclusion.png', # FIX
+	'emit':			'_Emission.png', # FIX
+	'height':		'_Displacement.png',
+	'metallic':		'_Metallic.png', # FIX
+	'normal':		'_NormalDX.png',
+	'roughness':	'_Roughness.png',
 }
 
 presets = {
@@ -118,8 +121,8 @@ for k, v in curmode.items():
 	p: Path = path_src.parent / (matname+v)
 	if p.exists(): files[k] = p
 
-if len(({'albedo','rough','normal'}).difference(set(files))):
-	print( 'Albedo/normal/roughness/metallic texture must be present!' )
+if len(({'albedo','roughness','normal'}).difference(set(files))):
+	print( 'Albedo/normal/roughness textures must be present!' )
 	exit(1)
 
 for k, v in curmode.items():
@@ -129,35 +132,24 @@ for k, v in curmode.items():
 		img.load()
 		files[k] = img
 
-vmt, images = imagecore.compile_textures(
-	mat_path / (matname+'.vmt'),
-	model=curpreset['model'],
-	pbr=curpreset['pbr'],
-	envmap='env_cubemap',
-	phong=curpreset['phong'],
-	parallax=curpreset['parallax'],
-	alpha=(img.mode == 'RGBA' or img.mode == 'LA' or img.mode == 'PA'),
 
-	resize=curpreset['resize'],
-	resize_albedo=curpreset['resize_albedo'],
+def make_vtf(img: Image.Image):
+	v = VTF(img.width, img.height)
+	v.get().copy_from(img.convert('RGBA').tobytes())
+	return v
 
-	compress=False,
-	compress_albedo=False,
+mat = Convert.from_images(files, "testy", Material.MaterialMode.PhongEnvmap)
+images = Convert.export(mat)
 
-	burn_emit=False,
-	invert_y=False,
 
-	albedo=files['albedo'],
-	ao=files['ao'],
-	roughness=files['rough'],
-	metallic=files['metallic'],
-	normal=files['normal'],
-	emit=files['emit'],
-	height=files['height'] )
+for tex in images:
+	# tex.image.save("test/amogus"+tex.name+".png", optimize=False)
+	with open( 'test/tiles' + (tex.name+'.vtf'), 'wb' ) as file:
+		make_vtf(tex.image).save( file )
 
-for path, img in images.items():
-	with open( path_target.parent / (path+'.vtf'), 'wb' ) as file:
-		img.save( file )
+	vmt = Vmt.make_vmt(mat)
+	with open( 'test/tiles.vmt', 'w') as file:
+		file.writelines(vmt.export())
 
-with open( path_target.parent / (matname+'.vmt'), 'w' ) as file:
-	file.write( vmt )
+# with open( path_target.parent / (matname+'.vmt'), 'w' ) as file:
+# 	file.write( vmt )
