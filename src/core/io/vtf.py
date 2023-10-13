@@ -36,17 +36,24 @@ class VtfFormat(imcore.format.Format):
 			height, width, bands = im.shape
 
 			format = None
+			flags = vtf.VTFFlags.EMPTY
 			match (bands, im.dtype):
 				case (1, 'uint8'): format = vtf.ImageFormats.I8
 				case (3, 'uint8'): format = vtf.ImageFormats.RGB888
-				case (4, 'uint8'): format = vtf.ImageFormats.RGBA8888
-				case (4, 'uint16'): format = vtf.ImageFormats.RGBA16161616
-				case (4, 'float16'): format = vtf.ImageFormats.RGBA16161616F
+				case (4, 'uint8'):
+					format = vtf.ImageFormats.RGBA8888
+					flags |= vtf.VTFFlags.EIGHTBITALPHA
+				case (4, 'uint16'):
+					format = vtf.ImageFormats.RGBA16161616
+					flags |= vtf.VTFFlags.EIGHTBITALPHA
+				case (4, 'float16'):
+					format = vtf.ImageFormats.RGBA16161616F
+					flags |= vtf.VTFFlags.EIGHTBITALPHA
 
 			if format is None:
 				raise TypeError(f"Could not match format {im.dtype}x{bands}!")
 
-			self.vtf = vtf.VTF(width, height, (7, 5), fmt=format)
+			self.vtf = vtf.VTF(width, height, (7, 5), fmt=format, flags=flags)
 			self.vtf.get().copy_from(im.tobytes('C'), format)
 			self.vtf.save(self.file)
 

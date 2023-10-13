@@ -154,3 +154,13 @@ class Image():
 		max_value: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8) - 1
 		self.data = max_value - self.data
 		return self
+
+	def rot90(self, num: int=1):
+		self.data = np.rot90(self.data, num, (0, 1))
+		return self
+
+	def flip_h(self):
+		self.data = np.flip(self.data, 0)
+
+	def flip_v(self):
+		self.data = np.flip(self.data, 1)

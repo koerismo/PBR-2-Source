@@ -99,7 +99,9 @@ def make_basecolor(mat: Material) -> Image:
 	basetexture = mat.albedo.copy().mult(mask)
 
 	if mat.mode == MaterialMode.PhongEnvmap:
-		basetexture = Image.merge((*basetexture.split(), make_envmask(mat)))
+		envmask = make_envmask(mat)
+		if True: envmask.rot90(1).flip_h() # I genuinely cannot believe this is an actual bug in portal 2
+		basetexture = Image.merge((*basetexture.split(), envmask))
 
 	return basetexture
 

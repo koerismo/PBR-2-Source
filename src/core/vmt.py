@@ -1,6 +1,25 @@
 from srctools.keyvalues import Keyvalues
 from .material import Material, MaterialMode
 
+
+'''
+"VertexLitGeneric"
+{
+	$basetexture "pbr2source_test0_albedo"
+	$bumpmap "pbr2source_test0_bump"
+
+	$envmap "env_cubemap"
+	$envmaptint "[.05 .05 .05]"
+	$envmapcontrast 1.0
+
+	$phong 1
+	$phongfresnelranges "[0.2 0.8 1.0]"
+	$phongexponenttexture "pbr2source_test0_phongexp"
+	$phongboost 1.0
+}
+'''
+
+
 def make_vmt(mat: Material) -> Keyvalues:
 
 	pbr = mat.mode < 2
@@ -24,7 +43,7 @@ def make_vmt(mat: Material) -> Keyvalues:
 			vmt["$fresnelreflection"]			("1")
 
 			vmt["$phongexponenttexture"]		(mat.name + "_phong")
-			vmt["$phongexponentfactor"]			("256")
+			# vmt["$phongexponentfactor"]			("256")
 			vmt["$phongboost"]					("10")
 
 			if mat.mode == MaterialMode.PhongEnvmapEmit:
