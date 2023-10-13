@@ -161,6 +161,8 @@ class Image():
 
 	def flip_h(self):
 		self.data = np.flip(self.data, 0)
+		return self
 
 	def flip_v(self):
 		self.data = np.flip(self.data, 1)
+		return self

@@ -8,6 +8,15 @@ class MaterialMode(IntEnum):
 	PhongEnvmapAlpha = 3	# Phong mask is in normal map alpha, envmap uses its own mask
 	PhongEnvmapEmit = 4		# Phong mask is in normal map alpha, envmap uses its own mask, emission uses basetexture alpha
 
+class MaterialTarget(IntEnum):
+	PBR = 0
+	LightmappedGeneric = 1
+	VertexLitGeneric = 2
+
+class NormalType(IntEnum):
+	GL = 0
+	DX = 1
+
 class Material:
 	mode: MaterialMode
 	size: tuple[int, int]
@@ -20,6 +29,8 @@ class Material:
 	ao: Image|None			# Linear f
 
 	normal: Image			# Linear RGBAf
+	normal_type: NormalType
+
 	height: Image|None		# Linear f
 
 	def __init__(self,

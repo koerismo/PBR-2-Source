@@ -4,7 +4,11 @@
 from .io.image import Image
 from typing import Literal
 from numpy.typing import DTypeLike
-from .material import Material, MaterialMode
+from .material import Material, MaterialMode, NormalType
+
+# There is a bug present in some branches of Source where the envmap/phong masks
+# are rotated and flipped when embedded in the basetexture/bump. This flag reverses the rotation.
+FIX_MASKROT_BUG = True
 
 '''
 References:
@@ -54,7 +58,7 @@ def make_phong_exponent(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	MAX_EXPONENT = 8 # $phongexponentfactor 8
+	MAX_EXPONENT = 32 # $phongexponentfactor 32
 	exponent_r = mat.roughness.copy().pow(-3).mult(0.8).div(MAX_EXPONENT)
 	exponent_g = Image.blank(mat.size, color=(1,))
 	exponent_b = Image.blank(mat.size, color=(0,))
@@ -70,6 +74,7 @@ def make_phong_mask(mat: Material) -> Image:
 
 	mask = mat.roughness.copy().invert().pow(5).mult(2)
 	if mat.ao: mask.mult(mat.ao)
+
 	return mask
 
 
@@ -81,6 +86,7 @@ def make_envmask(mat: Material) -> Image:
 
 	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
 	mask2 = mat.roughness.copy().invert().pow(5)
+
 	return mask1.mult(mask2)
 
 
@@ -95,12 +101,17 @@ def make_basecolor(mat: Material) -> Image:
 	mask.mult(mat.metallic)
 	mask.invert()
 
-	if mat.mode > 1 and mat.ao is not None: mask.mult(mat.ao)
+
+	if mat.mode > 1 and mat.ao is not None:
+		ao_blend = 0.75
+		ao = mat.ao.copy().mult(ao_blend).add(1 - ao_blend)
+		mask.mult(ao)
+
 	basetexture = mat.albedo.copy().mult(mask)
 
 	if mat.mode == MaterialMode.PhongEnvmap:
 		envmask = make_envmask(mat)
-		if True: envmask.rot90(1).flip_h() # I genuinely cannot believe this is an actual bug in portal 2
+		if FIX_MASKROT_BUG: envmask.rot90(1).flip_h()
 		basetexture = Image.merge((*basetexture.split(), envmask))
 
 	return basetexture
@@ -112,11 +123,12 @@ def make_bumpmap(mat: Material) -> Image:
 	if mat.mode < 2: return mat.normal
 
 	(r, g, b) = mat.normal.split()
-	g.invert()
-	a = make_phong_mask(mat)
-	bump = Image.merge((r, g, b, a))
+	if mat.normal_type == NormalType.GL: g.invert()
 
-	return bump
+	a = make_phong_mask(mat)
+	if FIX_MASKROT_BUG: a.rot90(1).flip_h()
+
+	return Image.merge((r, g, b, a))
 
 
 def make_mrao(mat: Material) -> Image:

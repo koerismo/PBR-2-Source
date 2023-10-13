@@ -127,6 +127,7 @@ path_target_dir = path_target.parent
 material_path = path_target_name
 
 mat = Convert.from_images(files, material_path, Material.MaterialMode.PhongEnvmap)
+mat.normal_type = Material.NormalType.DX
 images = Convert.export(mat)
 
 for tex in images:
