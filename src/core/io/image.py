@@ -47,12 +47,16 @@ class Image():
 		pimg = pimg.resize(size, sampler)
 		return Image(np.asarray(pimg).copy())
 
-	def convert(self, dtype: DTypeLike) -> "Image":
+	def convert(self, dtype: DTypeLike, clip=False) -> "Image":
 		''' Returns a copy of this image, converted to the specified datatype. '''
 		obj_dtype = np.dtype(dtype)
-		max_from: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8)
-		max_to: int   = 1 if obj_dtype.kind == 'f' else 2**(obj_dtype.itemsize*8)
+		max_from: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8) - 1
+		max_to: int   = 1 if obj_dtype.kind == 'f' else 2**(obj_dtype.itemsize*8) - 1
 		new_data = self.data.copy('C') / max_from * max_to
+
+		if clip:
+			new_data = new_data.clip(0, max_to)
+
 		return Image(new_data.astype(obj_dtype))
 
 	def split(self) -> list["Image"]:
@@ -89,13 +93,13 @@ class Image():
 		''' Converts this image to bytes. '''
 		return self.data.astype(format).tobytes('C')
 
-	def save(self, path: str) -> None:
+	def save(self, path: str|Path) -> None:
 		''' Saves this image to a file. Useful for debug. '''
 		try:
-			imageio.imwrite(Path(path), self.data)
+			imageio.imwrite(path if isinstance(path, Path) else Path(path), self.data)
 		except TypeError as e:
 			# Wrap the error message, since the default one is totally useless.
-			_, _, ext = path.rpartition('.')
+			_, _, ext = str(path).rpartition('.')
 			raise TypeError(f'Invalid datatype - attempted to save {self.data.dtype} data to a ".{ext}" file! '+str(e))
 
 	def copy(self) -> "Image":

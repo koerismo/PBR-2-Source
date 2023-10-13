@@ -54,8 +54,8 @@ def make_phong_exponent(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	# MAX_EXPONENT = 1 # $phongexponentfactor 1
-	exponent_r = mat.roughness.copy().pow(-3).mult(0.8) # .div(MAX_EXPONENT)
+	MAX_EXPONENT = 8 # $phongexponentfactor 8
+	exponent_r = mat.roughness.copy().pow(-3).mult(0.8).div(MAX_EXPONENT)
 	exponent_g = Image.blank(mat.size, color=(1,))
 	exponent_b = Image.blank(mat.size, color=(0,))
 	exponent = Image.merge((exponent_r, exponent_g, exponent_b))
@@ -94,7 +94,6 @@ def make_basecolor(mat: Material) -> Image:
 	mask = mat.roughness.copy().invert()
 	mask.mult(mat.metallic)
 	mask.invert()
-	mask.mult(mat.albedo)
 
 	if mat.mode > 1 and mat.ao is not None: mask.mult(mat.ao)
 	basetexture = mat.albedo.copy().mult(mask)

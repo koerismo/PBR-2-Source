@@ -9,63 +9,31 @@ if __name__ != '__main__':
 
 from pathlib import Path
 from argparse import ArgumentParser
-from .core.io.image import Image
 
 import core.io.vtf
+from core.io.image import Image
 import core.convert as Convert
 import core.material as Material
 import core.vmt as Vmt
+from tkinter.filedialog import asksaveasfilename
 
 
 parser = ArgumentParser( 'PBR-2-Source CLI', description='(BETA) A command line interface for PBR-2-Source.' )
 parser.add_argument( 'source' )
-parser.add_argument( '--target', dest='target', default=None, help='The output path. If none is provided, it will default to the source file names.' )
-parser.add_argument( '--mode', default='substance', help='What patterns the program should use to search for the texture files.', dest='mode' )
-parser.add_argument( '--preset', default='default', help='What preset the program should use to determine the output parameters.', dest='preset' )
-# parser.add_argument( '--onlyvmt', action='store_true', help='Only generates the vmt.' )
-# parser.add_argument( '--onlytex', action='store_true', help='Only generates the vtfs.' )
+parser.add_argument( '--target', dest='target', default=None, help='The output path. If none is provided, a file save prompt will be opened.' )
+parser.add_argument( '--no-phong', action='store_true', help='Disable phong on the output material.' )
+parser.add_argument( '--no-envmap', action='store_true', help='Disable envmaps on the output material.' )
+parser.add_argument( '--only-vmt', action='store_true', help='Only generates the vmt.' )
+parser.add_argument( '--only-vtf', action='store_true', help='Only generates the vtfs.' )
+parser.add_argument( '--mode', default='auto', choices=['auto','substance', 'ambientcg'], help='Overrides the material input mode.' )
 args = parser.parse_args()
 
-preset_default = {
-	'model':		True,
-	'pbr':			False,
-	'phong':		False,
-	'alpha':		0,
-	'envmap':		'env_cubemap',
-	'parallax':		False,
-	'burn_emit':	False,
-	'invert_y':		False,
-	'resize':			None,
-	'resize_albedo':	None,
-	'compress':			False,
-	'compress_albedo':	False,
-}
-
-preset_pbr_model = {
-	'model':		True,
-	'pbr':			True,
-}
-
-preset_pbr_brush = {
-	'model':		False,
-	'pbr':			True,
-	'resize_albedo':	(512,512),
-}
-
-preset_model = {
-	'model':		True,
-	'pbr':			False,
-	'phong':		True,
-}
-
-preset_brush = {
-	'model':		False,
-	'pbr':			False,
-	'phong':		True,
-	'resize_albedo':	(512,512),
-}
+#
+# DEFINE MODES
+#
 
 mode_substance = {
+	'__name__':	'Substance',
 	'albedo':	'_basecolor.png',
 	'ao':		'_ambientocclusion.png',
 	'emit':		'_emissive.png',
@@ -76,6 +44,7 @@ mode_substance = {
 }
 
 mode_ambientcg = {
+	'__name__':		'AmbientCG',
 	'albedo':		'_Color.png',
 	'ao':			'_AmbientOcclusion.png', # FIX
 	'emit':			'_Emission.png', # FIX
@@ -85,59 +54,88 @@ mode_ambientcg = {
 	'roughness':	'_Roughness.png',
 }
 
-presets = {
-	'default': preset_default,
-	'pbr-brush': preset_pbr_brush,
-	'pbr-model': preset_pbr_model,
-	'brush': preset_brush,
-	'model': preset_model,
-}
+modes = [mode_substance, mode_ambientcg]
+mode_ids = { 'substance': 0, 'ambientcg': 1 }
 
-modes = {
-	'substance': mode_substance,
-	'ambientcg': mode_ambientcg,
-}
+#
+# DETERMINE MATERIAL SOURCE LOCATION
+#
+
+raw_path_target = args.target or asksaveasfilename(title='Save VMT', filetypes=[('Valve Material Type', '*.vmt')])
+if not len(raw_path_target):
+	print('Operation cancelled by user.')
+	exit(0)
 
 path_src = Path( args.source )
-path_target = Path( args.target ) if args.target else path_src
+path_src_name = path_src.name
+path_target = Path( raw_path_target ).with_suffix('.vmt')
 mat_path = Path( '/' )
-if not path_src.is_file() or not path_src.exists():
-	print( 'Source file must be defined!' )
+
+if not path_src.exists():
+	print('Source path does not exist!')
 	exit(1)
 
-curmode = modes[args.mode]
-curpreset = preset_default
-curpreset.update(presets[args.preset])
+if path_src.is_dir():
+	print('Directory sources have not yet been implemented!')
+	exit(1)
 
-matname = path_src.name
-for k, v in curmode.items():
-	if matname.endswith( v ):
-		matname = matname[:-len(v)]
-		break
+#
+# DETERMINE INPUT MODE
+#
+
+mat_mode = None if args.mode == 'auto' else modes[mode_ids.get(args.mode, 0)]
+if mat_mode is None:
+	file_name = path_src.name
+	for mode in modes:
+		if not file_name.endswith(mode['albedo']): continue
+		print(f'Found {mode["__name__"]} material!')
+		mat_mode = mode
+
+if mat_mode is None:
+	print('Could not match source file to texture input mode!')
+	exit(1)
+
+path_src_name = path_src_name[:-len(mat_mode['albedo'])]
+
+#
+# READ FILES
+#
 
 files = {}
-for k, v in curmode.items():
-	p: Path = path_src.parent / (matname+v)
+for k, v in mat_mode.items():
+	if k == '__name__': continue
+	p: Path = path_src.parent / (path_src_name + v)
+	print(p)
 	if p.exists(): files[k] = p
 
 if len(({'albedo','roughness','normal'}).difference(set(files))):
 	print( 'Albedo/normal/roughness textures must be present!' )
 	exit(1)
 
-for k, v in curmode.items():
+for k, v in mat_mode.items():
+	if k == '__name__': continue
 	if k not in files: files[k] = None
 	else:
-		files[k] = Image( path_src.parent / (matname+v) )
+		files[k] = Image( files[k] )
 
-mat = Convert.from_images(files, "testy", Material.MaterialMode.PhongEnvmap)
+#
+# PROCESS AND CONVERT MATERIAL
+#
+
+path_target_name = path_target.name[:-4]
+path_target_dir = path_target.parent
+material_path = path_target_name
+
+mat = Convert.from_images(files, material_path, Material.MaterialMode.PhongEnvmap)
 images = Convert.export(mat)
 
 for tex in images:
-	# tex.image.save("test/amogus"+tex.name+".png", optimize=False)
-	tex.image.save('test/tiles' + (tex.name+'.vtf'))
+	tex_path = path_target_dir / (path_target_name + tex.name + '.vtf')
+	print(f'Saving file {tex_path} ...')
+	tex.image.save(tex_path)
 
 	vmt = Vmt.make_vmt(mat)
-	with open( 'test/tiles.vmt', 'w') as file:
+	with open( path_target, 'w') as file:
 		file.writelines(vmt.export())
 
 # with open( path_target.parent / (matname+'.vmt'), 'w' ) as file:
