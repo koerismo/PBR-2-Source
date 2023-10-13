@@ -25,6 +25,7 @@ parser.add_argument( '--no-phong', action='store_true', help='Disable phong on t
 parser.add_argument( '--no-envmap', action='store_true', help='Disable envmaps on the output material.' )
 parser.add_argument( '--only-vmt', action='store_true', help='Only generates the vmt.' )
 parser.add_argument( '--only-vtf', action='store_true', help='Only generates the vtfs.' )
+parser.add_argument( '--pbr', action='store_true', help='Convert to the Strata PBR format.' )
 parser.add_argument( '--mode', default='auto', choices=['auto','substance', 'ambientcg'], help='Overrides the material input mode.' )
 args = parser.parse_args()
 

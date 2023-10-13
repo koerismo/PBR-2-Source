@@ -1,14 +1,6 @@
-# from PIL.Image import Image
-# import PIL.Image
-# from PIL import ImageChops
-from .io.image import Image
 from typing import Literal
-from numpy.typing import DTypeLike
+from .io.image import Image
 from .material import Material, MaterialMode, NormalType
-
-# There is a bug present in some branches of Source where the envmap/phong masks
-# are rotated and flipped when embedded in the basetexture/bump. This flag reverses the rotation.
-FIX_MASKROT_BUG = True
 
 '''
 References:
@@ -111,7 +103,6 @@ def make_basecolor(mat: Material) -> Image:
 
 	if mat.mode == MaterialMode.PhongEnvmap:
 		envmask = make_envmask(mat)
-		if FIX_MASKROT_BUG: envmask.rot90(1).flip_h()
 		basetexture = Image.merge((*basetexture.split(), envmask))
 
 	return basetexture
@@ -124,9 +115,7 @@ def make_bumpmap(mat: Material) -> Image:
 
 	(r, g, b) = mat.normal.split()
 	if mat.normal_type == NormalType.GL: g.invert()
-
 	a = make_phong_mask(mat)
-	if FIX_MASKROT_BUG: a.rot90(1).flip_h()
 
 	return Image.merge((r, g, b, a))
 

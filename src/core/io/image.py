@@ -38,7 +38,7 @@ class Image():
 		for img in axes: assert img.channels == 1
 		width, height = axes[0].size
 		data = np.stack([img.data.reshape((height, width)) for img in axes])
-		return Image(np.swapaxes(data, 0, 2))
+		return Image(np.swapaxes(np.swapaxes(data, 0, 1), 1, 2))
 
 	def resize(self, size: tuple[int, int], sampler: PIL.Image.Resampling|None=None) -> "Image":
 		''' Resizes this image with the PIL backend. '''
@@ -61,7 +61,7 @@ class Image():
 
 	def split(self) -> list["Image"]:
 		''' Returns this image's data as a list of channels '''
-		channels = np.swapaxes(self.data, 0, 2)
+		channels = np.swapaxes(np.swapaxes(self.data, 2, 1), 1, 0)
 		return [Image(x) for x in channels]
 
 	def normalize(self, mode: Literal['RGB', 'RGBA', 'L']) -> "Image":
@@ -116,36 +116,31 @@ class Image():
 
 	def mult(self, other: "Image|int|float"):
 		''' Multiplies in-place, returning self. '''
-		v = other
-		if isinstance(other, Image): v = other.data
+		v: np.ndarray|int|float = other.data if isinstance(other, Image) else other
 		self.data *= v
 		return self
 
 	def div(self, other: "Image|int|float"):
 		''' Divides in-place, returning self. '''
-		v = other
-		if isinstance(other, Image): v = other.data
+		v = other.data if isinstance(other, Image) else other
 		self.data /= v
 		return self
 
 	def pow(self, other: "Image|int|float"):
 		''' Powers in-place, returning self. '''
-		v = other
-		if isinstance(other, Image): v = other.data
+		v = other.data if isinstance(other, Image) else other
 		self.data **= other
 		return self
 
 	def add(self, other: "Image|int|float"):
 		''' Adds in-place, returning self. '''
-		v = other
-		if isinstance(other, Image): v = other.data
+		v = other.data if isinstance(other, Image) else other
 		self.data += v
 		return self
 
 	def sub(self, other: "Image|int|float"):
 		''' Subtracts in-place, returning self. '''
-		v = other
-		if isinstance(other, Image): v = other.data
+		v = other.data if isinstance(other, Image) else other
 		self.data -= v
 		return self
 
