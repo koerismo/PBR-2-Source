@@ -1,5 +1,3 @@
-# from PIL.Image import Image
-# import PIL.Image
 from .material import Material, MaterialMode, Texture
 from . import texops
 from .io.image import Image
