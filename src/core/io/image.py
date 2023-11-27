@@ -1,9 +1,31 @@
-import imageio.v3 as imageio
 import numpy as np
 from numpy.typing import DTypeLike
 from pathlib import Path
 import PIL.Image
 from typing import Literal
+from abc import abstractmethod
+
+class IOBackend():
+	'''
+	Represents an abstract I/O interface for saving and loading images to/from
+	the user's filesystem. Only VTFs are exported from the application by default.
+	'''
+
+	@staticmethod
+	@abstractmethod
+	def save(image: 'Image', path: str|Path, version: int=5) -> bool:
+		...
+
+	@staticmethod
+	@abstractmethod
+	def load(path: str|Path) -> 'Image':
+		...
+
+	@staticmethod
+	@abstractmethod
+	def resize(image: 'Image', dims: tuple[int, int]) -> 'Image':
+		''' TODO: Move resizing to the backend-specific implementation, since QT has its own (probably better) way of resizing! '''
+		...
 
 class Image():
 	'''
@@ -12,20 +34,19 @@ class Image():
 	limitations and general badness of the PIL API.
 	'''
 
-	data: np.ndarray
 
-	def __init__(self, src: np.ndarray|str|Path) -> None:
-		''' Creates a new image. src can be a filepath or a numpy array! '''
-		if isinstance(src, np.ndarray):
-			self.data = src
-		else:
-			self.data = imageio.imread(Path(src) if isinstance(src, str) else src)
-
-		if self.channels == 1:
-			self.data = self.data.reshape((self.size[1], self.size[0], 1))
+	backend: type[IOBackend] # static
 
 	@staticmethod
-	def blank(size: tuple[int, int], color: tuple[int|float, ...]=(1, 1, 1), dtype: DTypeLike='float32') -> "Image":
+	def set_backend(backend: type[IOBackend]):
+		Image.backend = backend
+
+	@staticmethod
+	def load(path: str|Path) -> 'Image':
+		return Image.backend.load(path)
+
+	@staticmethod
+	def blank(size: tuple[int, int], color: tuple[int|float, ...]=(1, 1, 1), dtype: DTypeLike='float32') -> 'Image':
 		''' Creates a blank image by size, type, and color. '''
 		data = np.ndarray((*size, len(color)), dtype, order='C')
 		data.fill(1)
@@ -33,21 +54,35 @@ class Image():
 		return Image(data)
 
 	@staticmethod
-	def merge(axes: tuple["Image", ...]) -> "Image":
+	def merge(axes: tuple["Image", ...]) -> 'Image':
 		''' Merges N images into one as color channels. '''
 		for img in axes: assert img.channels == 1
 		width, height = axes[0].size
 		data = np.stack([img.data.reshape((height, width)) for img in axes])
 		return Image(np.swapaxes(np.swapaxes(data, 0, 1), 1, 2))
 
-	def resize(self, size: tuple[int, int], sampler: PIL.Image.Resampling|None=None) -> "Image":
+
+	data: np.ndarray
+
+	def __init__(self, src: np.ndarray) -> None:
+		''' Creates a new image. src can be a filepath or a numpy array! '''
+		if not isinstance(src, np.ndarray):
+			raise NotImplementedError('Cannot construct generic image from non-ndarray. Use IO implementation!')
+
+		self.data = src
+
+		if self.channels == 1:
+			self.data = self.data.reshape((self.size[1], self.size[0], 1))
+
+
+	def resize(self, size: tuple[int, int], sampler: PIL.Image.Resampling|None=None) -> 'Image':
 		''' Resizes this image with the PIL backend. '''
 		data = self.data if self.channels > 1 else self.data.reshape((self.size[1], self.size[0]))
 		pimg = PIL.Image.fromarray(data)
 		pimg = pimg.resize(size, sampler)
 		return Image(np.asarray(pimg).copy())
 
-	def convert(self, dtype: DTypeLike, clip=False) -> "Image":
+	def convert(self, dtype: DTypeLike, clip=False) -> 'Image':
 		''' Returns a copy of this image, converted to the specified datatype. '''
 		obj_dtype = np.dtype(dtype)
 		max_from: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8) - 1
@@ -64,7 +99,7 @@ class Image():
 		channels = np.swapaxes(np.swapaxes(self.data, 2, 1), 1, 0)
 		return [Image(x) for x in channels]
 
-	def normalize(self, mode: Literal['RGB', 'RGBA', 'L']) -> "Image":
+	def normalize(self, mode: Literal['RGB', 'RGBA', 'L']) -> 'Image':
 		s = self.split()
 		if self.channels == 1:
 			if mode == 'L': return self
@@ -93,14 +128,9 @@ class Image():
 		''' Converts this image to bytes. '''
 		return self.data.astype(format).tobytes('C')
 
-	def save(self, path: str|Path) -> None:
+	def save(self, path: str|Path, version: int=5) -> bool:
 		''' Saves this image to a file. Useful for debug. '''
-		try:
-			imageio.imwrite(path if isinstance(path, Path) else Path(path), self.data)
-		except TypeError as e:
-			# Wrap the error message, since the default one is totally useless.
-			_, _, ext = str(path).rpartition('.')
-			raise TypeError(f'Invalid datatype - attempted to save {self.data.dtype} data to a ".{ext}" file! '+str(e))
+		return Image.backend.save(self, path, version)
 
 	def copy(self) -> "Image":
 		''' Clones this image. '''
