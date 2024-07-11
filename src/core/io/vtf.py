@@ -58,4 +58,4 @@ class VtfFormat(imcore.format.Format):
 			self.vtf.save(self.file)
 
 
-implugins.formats.add_format(VtfFormat("VTF", "Implements the Valve Texture Format", ["vtf", "vtfd"], "i"))
+implugins.formats.add_format(VtfFormat("VTF", "Implements the Valve Texture Format", ["vtf"], "i"))
