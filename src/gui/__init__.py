@@ -193,7 +193,9 @@ class MainWindow( QMainWindow ):
 		fileMenu.addAction('Load Preset').triggered.connect(self.load_preset)
 		fileMenu.addAction('Save Preset').triggered.connect(self.save_preset)
 		fileMenu.addSeparator()
-		fileMenu.addAction('Watch').triggered.connect(self.watch)
+
+		self.watchAction = fileMenu.addAction('Watch')
+		self.watchAction.triggered.connect(self.watch)
 
 		exportAction = fileMenu.addAction('Export')
 		exportAction.triggered.connect(self.export)
@@ -370,7 +372,7 @@ class MainWindow( QMainWindow ):
 			self.progressBar.setValue(100)
 
 			if self.config.hijackTarget:
-				subprocess.run([self.config.hijackTarget, f'+mat_reloadmaterial {self.backend.name}'])
+				subprocess.run([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
@@ -404,6 +406,7 @@ class MainWindow( QMainWindow ):
 		print('Watching:', self.watcher.files())
 	
 	def start_watch(self):
+		self.watchAction.setText('Stop Watching')
 		paths = [x for x in [
 			self.backend.albedoPath,
 			self.backend.roughnessPath,
@@ -416,6 +419,7 @@ class MainWindow( QMainWindow ):
 		self.watcher.addPaths(paths)
 
 	def stop_watch(self):
+		self.watchAction.setText('Watch')
 		self.watcher.removePaths(self.watcher.files())
 
 	@Slot()
