@@ -12,6 +12,7 @@ from core.material import Material, MaterialMode, GameTarget
 
 from pathlib import Path
 from enum import StrEnum
+from preset import Preset
 
 class ImageRole(StrEnum):
 	Albedo = 'albedo'
@@ -46,6 +47,24 @@ class CoreBackend():
 
 	def __init__(self) -> None:
 		pass
+
+	def load_preset(self, preset: Preset):
+		self.albedoPath = preset.get_str(ImageRole.Albedo)
+		self.roughnessPath = preset.get_str(ImageRole.Roughness)
+		self.metallicPath = preset.get_str(ImageRole.Metallic)
+		self.emitPath = preset.get_str(ImageRole.Emit)
+		self.aoPath = preset.get_str(ImageRole.AO)
+		self.normalPath = preset.get_str(ImageRole.Normal)
+		self.heightPath = preset.get_str(ImageRole.Height)
+	
+	def save_preset(self, preset: Preset):
+		preset.set(ImageRole.Albedo, self.albedoPath)
+		preset.set(ImageRole.Roughness, self.roughnessPath)
+		preset.set(ImageRole.Metallic, self.metallicPath)
+		preset.set(ImageRole.Emit, self.emitPath)
+		preset.set(ImageRole.AO, self.aoPath)
+		preset.set(ImageRole.Normal, self.normalPath)
+		preset.set(ImageRole.Height, self.heightPath)
 
 	def convert(self, path: str, role: ImageRole) -> tuple[QImage, Image]:
 		image: QImage = QImage()

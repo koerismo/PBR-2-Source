@@ -4,18 +4,20 @@ from core.material import GameTarget, MaterialMode
 
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET
 from .backend import CoreBackend, ImageRole
+from preset import Preset
+
 from sys import argv
 from traceback import format_exc
+import subprocess
 
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData
-from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QMouseEvent, QImage, QPixmap, QFontDatabase, QColor, QDrag
+from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer
+from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag
 from PySide6.QtWidgets import (
-	QWidget, QFrame, QApplication, QMessageBox,
-	QBoxLayout, QHBoxLayout, QVBoxLayout,
-	QLabel, QLineEdit, QToolButton,
-	QFileDialog, QGroupBox, QProgressBar, QPushButton, QComboBox,
-	QSizePolicy
+	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar,
+	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
+	QLabel, QLineEdit, QToolButton, QFileDialog,
+	QGroupBox, QProgressBar, QPushButton, QComboBox
 )
 
 from urllib.parse import unquote_plus, urlparse
@@ -116,10 +118,8 @@ class PickableImage( QFrame ):
 		if not filePath.is_file(): return
 		event.accept()
 
-		self.path_box.setText(filePath.name)
 		self.path = filePath
-		self.picked.emit(self.kind, self.path, self.set_icon)
-		self.update_required()
+		self.reload()
 	
 	def set_icon(self, img: QImage|None):
 		if img:
@@ -135,19 +135,32 @@ class PickableImage( QFrame ):
 		if len(fileUrls) == 0: return
 		
 		url = Path(fileUrls[0])
-		self.path_box.setText(url.name)
 		self.path = url
+		self.reload()
+
+	def on_icon_rclick(self):
+		self.path = None
+		self.reload()
+
+	def reload(self):
+		self.path_box.setText(self.path.name if self.path else '')
 		self.picked.emit(self.kind, self.path, self.set_icon)
 		self.update_required()
 
-	def on_icon_rclick(self):
-		self.path_box.setText('')
-		self.path = None
-		self.picked.emit(self.kind, None, self.set_icon)
-		self.update_required()
+	@Slot()
+	def from_preset(self, preset: Preset):
+		self.path = preset.get(self.kind)
+		self.reload()
 
+class MainWindow( QMainWindow ):
+	update_from_preset = Signal( Preset, name='UpdateFromPreset' )
 
-class MainWindow( QWidget ):
+	target: str|None = None
+	exporting: bool = False
+	watching: bool = False
+
+	watcherCooldown: QTimer
+	watcher: QFileSystemWatcher
 	config: AppConfig
 	backend: CoreBackend
 	progressBar: QProgressBar
@@ -158,12 +171,43 @@ class MainWindow( QWidget ):
 		self.setWindowTitle( 'PBR-2-Source v'+__version__ )
 		self.setMinimumSize( 300, 450 )
 		self.resize(600, 450)
-		self.setObjectName('window')
+
+		self.watcherCooldown = QTimer()
+		self.watcherCooldown.setSingleShot(True)
+		self.watcherCooldown.timeout.connect(self.export)
+		# self.watcherCooldown.timeout.connect(lambda : print('YIPPEE!!'))
+
+		self.watcher = QFileSystemWatcher(self)
+		self.watcher.fileChanged.connect(self.on_file_changed)
 
 		self.config = config
 		self.backend = CoreBackend()
 
-		root = QVBoxLayout(self)
+		''' ========================== MENU ========================== '''
+
+		menuBar = QMenuBar(self)
+		menuBar.setNativeMenuBar(False)
+
+		self.setMenuBar(menuBar)
+		fileMenu = menuBar.addMenu('File')
+		fileMenu.addAction('Load Preset').triggered.connect(self.load_preset)
+		fileMenu.addAction('Save Preset').triggered.connect(self.save_preset)
+		fileMenu.addSeparator()
+		fileMenu.addAction('Watch').triggered.connect(self.watch)
+
+		exportAction = fileMenu.addAction('Export')
+		exportAction.triggered.connect(self.export)
+		exportAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_E))
+		
+		exportAsAction = fileMenu.addAction('Export As...')
+		exportAsAction.triggered.connect(self.export_as)
+		exportAsAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E))
+
+		''' ========================== LAYOUT ========================== '''
+
+		rootWidget = QWidget(self)
+		root = QVBoxLayout(rootWidget)
+		self.setCentralWidget(rootWidget)
 
 		inner = QHBoxLayout()
 		root.addLayout(inner)
@@ -187,6 +231,7 @@ class MainWindow( QWidget ):
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
 				widget.picked.connect(self.picked)
+				self.update_from_preset.connect(widget.from_preset)
 				parent.addWidget(widget)
 
 		registerWidgets(leftLayout, [
@@ -250,45 +295,86 @@ class MainWindow( QWidget ):
 		]: envmapDropdown.addItem(text, data)
 		envmapDropdown.setCurrentIndex(1)
 
+		rightLayout.addWidget(QLabel('Material Hint'))
+
+		hintDropdown = QComboBox()
+		rightLayout.addWidget(hintDropdown)
+		for text,data in [
+			('None', None),
+			('Brick', 'brick'),
+			('Concrete', 'concrete'),
+			('Rock', 'rock'),
+			('Metal', 'metal'),
+			('Wood', 'wood'),
+			('Dirt', 'dirt'),
+			('Grass', 'grass'),
+			('Sand', 'sand'),
+			('Water', 'water'),
+			('Ice', 'ice'),
+			('Snow', 'snow'),
+			('Flesh', 'flesh'),
+			('Foliage', 'foliage'),
+			('Glass', 'glass'),
+			('Tile', 'tile'),
+			('Cardboard', 'cardboard'),
+			('Plaster', 'plaster'),
+			('Plastic', 'plastic'),
+			('Rubber', 'rubber'),
+			('Carpet', 'carpet'),
+			('Computer', 'computer'),
+		]: hintDropdown.addItem(text, data)
+		hintDropdown.setCurrentIndex(0)
+
 
 		''' ========================== FOOTER ========================== '''
 
 		self.progressBar = QProgressBar()
-		self.progressBar.setValue(10)
+		self.progressBar.setValue(0)
 		self.progressBar.setMaximum(100)
 		footer.addWidget(self.progressBar)
 
-		self.exportButton = QPushButton('Watch')
-		self.exportButton.clicked.connect(self.export)
-		footer.addWidget(self.exportButton)
-
-		self.exportButton = QPushButton('Export')
-		self.exportButton.clicked.connect(self.export)
+		self.exportButton = QPushButton('Export As...')
+		self.exportButton.clicked.connect(self.export_as)
 		footer.addWidget(self.exportButton)
 		
-	
+	@Slot()
 	def picked(self, kind: ImageRole, path: Path|None, set_icon):
 		img = self.backend.pick(str(path) if path else None, kind)
 		set_icon(img)
 
+	def pick_target(self):
+		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
+		if len(targetPath): self.target = targetPath
+
+	@Slot()
 	def export(self):
+		if self.exporting: return
+		self.exporting = True
+			
 		print('Exporting...')
 		self.exportButton.setEnabled(False)
 		self.progressBar.setValue(0)
+		QApplication.processEvents()
 
 		try:
 			material = self.backend.make_material(self.config.reloadOnExport)
 			self.progressBar.setValue(50)
-			self.progressBar.setValue(100)
+
+			if self.target == None: self.pick_target()
+			if self.target == None: raise InterruptedError()
 			
-			targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
-			if not len(targetPath): raise InterruptedError()
+			targetPath: str = self.target # type: ignore
+
 			self.backend.pick_vmt(targetPath)
 			self.backend.export(material)
+			self.progressBar.setValue(100)
 
+			if self.config.hijackTarget:
+				subprocess.run([self.config.hijackTarget, f'+mat_reloadmaterial {self.backend.name}'])
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
+
 			if isinstance(e, InterruptedError):
 				print('The export was cancelled by the user.')
 			else:
@@ -298,10 +384,66 @@ class MainWindow( QWidget ):
 		
 		finally:
 			self.exportButton.setEnabled(True)
+			self.exporting = False
+
+	@Slot()
+	def export_as(self):
+		if self.exporting: return
+		self.target = None
+		self.export()
+
+	@Slot()
+	def watch(self):
+		if not self.watching and self.target == None:
+			self.pick_target()
+			if not self.target: return
+
+		self.watching = not self.watching
+		if self.watching:	self.start_watch()
+		else:				self.stop_watch()
+		print('Watching:', self.watcher.files())
+	
+	def start_watch(self):
+		paths = [x for x in [
+			self.backend.albedoPath,
+			self.backend.roughnessPath,
+			self.backend.metallicPath,
+			self.backend.emitPath,
+			self.backend.aoPath,
+			self.backend.normalPath,
+			self.backend.heightPath,
+		] if x != None]
+		self.watcher.addPaths(paths)
+
+	def stop_watch(self):
+		self.watcher.removePaths(self.watcher.files())
+
+	@Slot()
+	def on_file_changed(self, file: str):
+		assert self.watching, 'SOMETHING HAS GONE VERY WRONG HERE!!'
+		print('File changed:', file)
+		self.watcherCooldown.start(500)
+
+	@Slot()
+	def load_preset(self):
+		selected = QFileDialog.getOpenFileName(self, caption='Loading preset...', filter='JSON Presets (*.json)')[0]
+		if not len(selected): return
+
+		preset = Preset.load(selected)
+		self.update_from_preset.emit(preset)
+	
+	def save_preset(self):
+		selected = QFileDialog.getSaveFileName(self, caption='Saving preset...', filter='JSON Presets (*.json)')[0]
+		if not len(selected): return
+		print(selected)
+		
+		preset = Preset()
+		self.backend.save_preset(preset)
+		preset.save(selected)
 
 def start_gui():
+	app: QApplication = QApplication()
 	app_config = load_config()
-	app = QApplication()
 
 	if '--style-fusion' in argv: app_config.appTheme = AppTheme.Fusion
 	if '--style-native' in argv: app_config.appTheme = AppTheme.Native

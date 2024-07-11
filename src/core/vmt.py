@@ -20,7 +20,6 @@ from .material import Material, MaterialMode, GameTarget
 '''
 
 def game_envmaptint(game: GameTarget, vlg: bool) -> float:
-	return 1.0
 	if game > GameTarget.V2011: return 1.0
 	return .05 if vlg else .05**2.2
 
@@ -38,7 +37,7 @@ def make_vmt(mat: Material) -> str:
 		l = len(vmt)
 		vmt[l:l+len(args)] = args
 
-	write(		f'{shader} {{',
+	write(		f'{shader}\n{{',
 				f'	$basetexture		"{mat.name}_albedo"',
 				f'	$bumpmap			"{mat.name}_bump"' )
 
@@ -46,26 +45,46 @@ def make_vmt(mat: Material) -> str:
 		write(	'	$translucent	1')
 
 	if pbr:
-		write(	'',
+		write(
+				'',
 				f'	$mraotexture		"{mat.name}_mrao"',
-				f'	$emissiontexture	"{mat.name}_emit"',
 				f'	$model				{int(MaterialMode.is_model(mat.mode))}' )
+		
+		if mat.emit:
+			write(
+				f'	$emissiontexture	"{mat.name}_emit"')
+		if mat.height:
+			write(
+				'',
+				'	$parallax			1',
+				'	$parallaxdepth		0.04',
+				'	$parallaxcenter		0.5')
 
 	else:
 		envmaptint = game_envmaptint(mat.target, MaterialMode.is_vlg(mat.mode))
 		lightscale = game_lightscale(mat.target)
 
-		write(	'',
+		write(
+				'',
 				f'	$envmap						"env_cubemap"',
-				f'	$envmapmask					"{mat.name}_envmap"',
 				f'	$envmaptint					"[{envmaptint} {envmaptint} {envmaptint}]"',
 				'	$envmapcontrast				1.0' )
+
+
+		if MaterialMode.embed_envmap(mat.mode):
+			write(
+				'	$basetextureenvmapmask		1')
+		else:
+			write(
+				f'	$envmapmask					"{mat.name}_envmap"')
+
 
 		if lightscale:
 			write(
 				f'	$envmaplightscale			{lightscale}' )
 
-		write(
+		if MaterialMode.has_phong(mat.mode):
+			write(
 				'',
 				'	$phong 1',
 				f'	$phongexponenttexture		"{mat.name}_phongexp"',
@@ -74,8 +93,11 @@ def make_vmt(mat: Material) -> str:
 
 		if MaterialMode.has_selfillum(mat.mode):
 			write(	'',
-				'	$selfillum		1',
-				f'	$selfillummask	"{mat.name}_emit"' )
+				'	$selfillum		1')
+			
+			# Mask is always embedded in basetexture alpha, so we don't need this.
+			# write(
+			# 	f'	$selfillummask	"{mat.name}_emit"' )
 
 	write('}')
 	return '\n'.join(vmt)

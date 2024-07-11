@@ -93,31 +93,43 @@ def make_basecolor(mat: Material) -> Image:
 	mask.mult(mat.metallic)
 	mask.invert()
 
-
-	if mat.mode > 1 and mat.ao is not None:
+	if not MaterialMode.is_pbr(mat.mode) and mat.ao is not None:
 		ao_blend = 0.75
 		ao = mat.ao.copy().mult(ao_blend).add(1 - ao_blend)
 		mask.mult(ao)
 
 	basetexture = mat.albedo.copy().mult(mask)
 
-	if mat.mode == MaterialMode.PhongEnvmap:
+	# Envmask as basetexture alpha
+	if MaterialMode.embed_envmap(mat.mode):
+		rgba = basetexture.split()
 		envmask = make_envmask(mat)
-		basetexture = Image.merge((*basetexture.split(), envmask))
+		basetexture = Image.merge((rgba[0], rgba[1], rgba[2], envmask))
+
+	# Emission as basetexture alpha
+	# TODO: Burn emission color into image when using VLG/LMG
+	if MaterialMode.embed_selfillum(mat.mode):
+		assert mat.emit != None, 'An emissive texture is required for this mode!'
+		rgba = basetexture.split()
+		emitmask = mat.emit.copy().grayscale()
+		basetexture = Image.merge((rgba[0], rgba[1], rgba[2], emitmask))
 
 	return basetexture
 
 
 def make_bumpmap(mat: Material) -> Image:
-	''' Generates a RGBA bumpmap with embedded phong information when applicable. '''
+	''' Generates a RGB/RGBA bumpmap with embedded phong information when applicable. '''
 
 	if mat.mode < 2: return mat.normal
 
 	(r, g, b) = mat.normal.split()
 	if mat.normal_type == NormalType.GL: g.invert()
-	a = make_phong_mask(mat)
 
-	return Image.merge((r, g, b, a))
+	if MaterialMode.has_phong(mat.mode):
+		a = make_phong_mask(mat)
+		return Image.merge((r, g, b, a))
+
+	return Image.merge((r, g, b))
 
 
 def make_mrao(mat: Material) -> Image:

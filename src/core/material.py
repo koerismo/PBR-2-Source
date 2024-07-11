@@ -35,6 +35,14 @@ class MaterialMode(IntEnum):
 		if mat <= 12: return 'VertexLitGeneric'
 		return 'LightmappedGeneric'
 
+	@staticmethod
+	def embed_envmap(mat: 'MaterialMode'):
+		return mat == MaterialMode.Envmap or mat == MaterialMode.PhongEnvmap
+
+	@staticmethod
+	def embed_selfillum(mat: 'MaterialMode'):
+		return mat == MaterialMode.PhongEnvmapEmit or mat == MaterialMode.EnvmapEmit
+
 class GameTarget(IntEnum):
 	V2006 = 0	# HL2, EP1
 	V2007 = 1	# EP2, Portal, TF2

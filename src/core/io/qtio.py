@@ -20,14 +20,14 @@ def load_vtf(file: IO[bytes]):
 def image_to_qimage(image: Image) -> QImage:
 	''' Converts an Image to a Qt QImage. (U8) '''
 	size = image.size
-	return QImage(image.tobytes(np.uint8), size[0], size[1], QImage.Format.Format_RGBA8888)
+	return QImage(image.tobytes(np.float16), size[0], size[1], QImage.Format.Format_RGBA16FPx4)
 
 def qimage_to_image(im: QImage) -> Image:
 	''' Converts a Qt QImage to an Image. (U8) '''
-	im = im.convertToFormat(QImage.Format.Format_RGBA8888)
+	im = im.convertToFormat(QImage.Format.Format_RGBA16FPx4)
 	ptr = im.constBits()
 	# TODO: Yes, width/height are swapped intentionally. No, I don't completely understand it either.
-	src = np.frombuffer(ptr, dtype=np.uint8).reshape(im.height(), im.width(), im.bitPlaneCount() // 8)
+	src = np.frombuffer(ptr, dtype=np.float16).reshape(im.height(), im.width(), im.bitPlaneCount() // 16)
 	return Image(src)
 
 class QtIOBackend(IOBackend):

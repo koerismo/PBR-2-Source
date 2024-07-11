@@ -82,6 +82,7 @@ class Image():
 		obj_dtype = np.dtype(dtype)
 		max_from: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8) - 1
 		max_to: int   = 1 if obj_dtype.kind == 'f' else 2**(obj_dtype.itemsize*8) - 1
+		print(max_to / max_from, max_to, max_from)
 		new_data = self.data.copy('C') * (max_to / max_from)
 
 		if clip:
@@ -110,6 +111,15 @@ class Image():
 			return self
 
 		raise ValueError(f'Image has unrecognized number of channels ({self.channels})! Failed to convert to {mode}!')
+
+	def grayscale(self):
+		''' If required, grayscales the image. This might damage the original image! '''
+		if self.channels == 1: return self
+		assert self.channels == 3
+		[r, g, b] = self.split()
+		# https://en.wikipedia.org/wiki/Luma_(video)
+		gray = r.mult(0.2126).add(g.mult(0.7152)).add(b.mult(0.0722))
+		return gray
 
 	def get_channel(self, channel: int) -> int:
 		if channel >= self.channels: raise ValueError(f'Attempted to get channel {channel+1} of {self.channels}-channel image!')

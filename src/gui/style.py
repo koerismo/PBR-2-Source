@@ -3,8 +3,8 @@ border-color: #999;
 '''
 
 STYLESHEET = '''
-QWidget#window {
-	background-color: #222;
+QMainWindow {
+	background-color: #272727;
 }
 
 * {
@@ -15,14 +15,14 @@ QWidget#window {
 
 QGroupBox {
 	background-color: #333;
-	border: 1px solid #444;
+	border: none;
 	margin-top: 18px;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-	color: #777;
+	color: #999;
 }
 
 QLabel#hint {
@@ -50,8 +50,8 @@ QToolButton:pressed {
 }
 
 QLineEdit:disabled {
-	background-color: #282828;
-	border: none;
+	background-color: #333;
+	border: 1px solid #272727;
 	color: #888;
 }
 
@@ -63,7 +63,7 @@ QPushButton {
 }
 
 QPushButton:hover {
-	background-color: #555;
+	background-color: #666;
 	color: #eee;
 }
 
@@ -74,7 +74,7 @@ QPushButton:pressed {
 
 QProgressBar {
     border: 1px solid #333;
-	background-color: #222;
+	background-color: #282828;
     border-radius: 0px;
 	color: transparent;
 }
