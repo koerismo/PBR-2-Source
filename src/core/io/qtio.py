@@ -6,16 +6,49 @@ from PySide6.QtCore import Qt
 
 import numpy as np
 from srctools.vtf import VTF, VTFFlags, ImageFormats
+from typing import IO
+
+qimage_test: QImage|None = None
+
+def load_vtf(file: IO[bytes]):
+	vtf = VTF.read(file)
+	frame = vtf.get()
+	frame.load()
+	data = np.array(frame._data).reshape((frame.width, frame.height, 4))
+	return Image(data)
+
+def image_to_qimage(image: Image) -> QImage:
+	''' Converts an Image to a Qt QImage. (U8) '''
+	size = image.size
+	return QImage(image.tobytes(np.uint8), size[0], size[1], QImage.Format.Format_RGBA8888)
+
+def qimage_to_image(im: QImage) -> Image:
+	''' Converts a Qt QImage to an Image. (U8) '''
+	im = im.convertToFormat(QImage.Format.Format_RGBA8888)
+	ptr = im.constBits()
+	# TODO: Yes, width/height are swapped intentionally. No, I don't completely understand it either.
+	src = np.frombuffer(ptr, dtype=np.uint8).reshape(im.height(), im.width(), im.bitPlaneCount() // 8)
+	return Image(src)
 
 class QtIOBackend(IOBackend):
 	@staticmethod
-	def load(path: str|Path) -> Image:
+	def load_qimage(path: str|Path) -> QImage:
+		if (str(path).endswith('.vtf')):
+			with open(path, 'rb') as file:
+				return image_to_qimage(load_vtf(file))
+			
 		im = QImage()
 		im.load(str(path))
-		im = im.convertedTo(QImage.Format.Format_RGBA8888, Qt.ImageConversionFlag.NoOpaqueDetection)
-		ptr = im.constBits()
-		src = np.array(ptr).reshape(im.width(), im.height(), 4)
-		return Image(src)
+		im.convertToColorSpace(QColorSpace.NamedColorSpace.SRgbLinear)
+		return im
+
+	@staticmethod
+	def load(path: str|Path) -> Image:
+		if (str(path).endswith('.vtf')):
+			with open(path, 'rb') as file:
+				return load_vtf(file)
+
+		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
 	def save(image: Image, path: str | Path, version: int=5) -> None:
@@ -48,6 +81,13 @@ class QtIOBackend(IOBackend):
 
 		with open(path, 'wb') as file:
 			vtf.save(file)
+	
+	@staticmethod
+	def resize(image: Image, dims: tuple[int, int]) -> Image:
+		# TODO: This causes segfaults sometimes. WTF?
+		qimage = image_to_qimage(image)
+		qimage = qimage.scaled(dims[0], dims[1], Qt.AspectRatioMode.IgnoreAspectRatio)
+		return qimage_to_image(qimage)
 
 # def apply_gamma(image: QImage, gamma: float) -> None:
 # 	for y in range(0, image.height()):
@@ -59,7 +99,7 @@ class QtIOBackend(IOBackend):
 # 			col.setAlphaF(col.alphaF() ** gamma)
 # 			image.setPixelColor(x, y, col)
 
-def load(path: str) -> Image:
+def DEPRECATED_load(path: str) -> Image:
 	image = QImage()
 	image.load(path)
 

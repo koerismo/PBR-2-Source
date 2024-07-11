@@ -2,48 +2,58 @@ from PySide6.QtCore import Signal, Slot
 from PySide6.QtGui import QImage, QColorSpace
 from PySide6.QtCore import Qt
 
+from core.io.qtio import QtIOBackend, qimage_to_image, image_to_qimage
+
 from core import texops
 from core.convert import export as core_export
 from core.io.image import Image
 from core.material import Material, MaterialMode, GameTarget
 
-from enum import IntEnum
+from enum import StrEnum
 import numpy as np
 
-class ImageRole(IntEnum):
-	Albedo = 0
-	Roughness = 1
-	Metallic = 2
-	Emit = 3
-	AO = 4
-	Normal = 5
-	Height = 6
+class ImageRole(StrEnum):
+	Albedo = 'albedo'
+	Roughness = 'roughness'
+	Metallic = 'metallic'
+	Emit = 'emit'
+	AO = 'ao'
+	Normal = 'normal'
+	Height = 'height'
 
 class CoreBackend():
-	albedo: Image|None
-	roughness: Image|None
-	metallic: Image|None
-	emit: Image|None
-	ao: Image|None
-	normal: Image|None
-	height: Image|None
+	albedo: Image|None = None
+	roughness: Image|None = None
+	metallic: Image|None = None
+	emit: Image|None = None
+	ao: Image|None = None
+	normal: Image|None = None
+	height: Image|None = None
 
-	name: str
-	game: GameTarget
-	mode: MaterialMode
+	albedoPath: str|None = None
+	roughnessPath: str|None = None
+	metallicPath: str|None = None
+	emitPath: str|None = None
+	aoPath: str|None = None
+	normalPath: str|None = None
+	heightPath: str|None = None
+
+	name: str = 'ThisShouldNeverAppear'
+	game: GameTarget = GameTarget.V2011
+	mode: MaterialMode = MaterialMode.PBRModel
 
 	def __init__(self) -> None:
 		pass
 
-	def open_file(self, path: str, role: ImageRole) -> QImage:
-		image = QImage()
-		image.load(path)
-		image.convertToColorSpace(QColorSpace.NamedColorSpace.SRgbLinear)
-		image.convertToFormat_inplace(QImage.Format.Format_RGBA32FPx4, Qt.ImageConversionFlag.AvoidDither)
-
-		ptr = image.constBits()
-		arr = np.array(ptr).reshape(image.width(), image.height(), 4)
-		converted = Image(arr)
+	def convert(self, path: str, role: ImageRole) -> tuple[QImage, Image]:
+		image: QImage = QImage()
+		converted: Image|None = None
+		if path.endswith('.vtf') or path.endswith('.hdr'):
+			converted = QtIOBackend.load(path)
+			image = image_to_qimage(converted)
+		else:
+			image = QtIOBackend.load_qimage(path)
+			converted = qimage_to_image(image)
 
 		match role:
 			case ImageRole.Albedo: self.albedo = converted
@@ -54,22 +64,45 @@ class CoreBackend():
 			case ImageRole.Normal: self.normal = converted
 			case ImageRole.Height: self.height = converted
 
-		return image
+		# converted.convert(np.uint8).save('./TEST.vtf')
+		return (image, converted)
 
-	def export(self):
-		albedo = self.albedo
-		assert albedo != None
+	def pick(self, path: str|None, role: ImageRole) -> QImage|None:
+		# Update current path
+		self.__setattr__(role+'Path', path)
+			
+		if path:
+			# Cache image
+			return self.convert(path, role)[0]
+		else:
+			# Remove cached image
+			self.__setattr__(role, None)
+			return None
 
-		roughness = self.roughness
-		assert roughness != None
+	def make_material(self, noCache: bool=False):
+		''' Generate the material from the collected textures. '''
 
-		metallic = self.metallic or Image.blank(roughness.size, (0.0,))
-		emit = self.emit
-		ao = self.ao
-		normal = self.normal or Image.blank(roughness.size, (0.5, 0.5, 1.0))
-		height = self.height or Image.blank(normal.size, (0.5,))
+		def getImage(role: ImageRole) -> Image|None:
+			''' Helper function for re-fetching images when the cache is disabled. '''
+			if noCache:
+				rolePath = self.__getattribute__(role+'Path')
+				if rolePath == None: return None
+				return self.convert(rolePath, role)[1]
+			return self.__getattribute__(role)
 
-		Material(
+		albedo = getImage(ImageRole.Albedo)
+		assert albedo != None, 'A basetexture is required to convert the material!'
+
+		roughness = getImage(ImageRole.Roughness)
+		assert roughness != None, 'A roughness map is required to convert the material!'
+
+		metallic = getImage(ImageRole.Metallic) or Image.blank(roughness.size, (0.0,))
+		emit = getImage(ImageRole.Emit)
+		ao = getImage(ImageRole.AO)
+		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
+		height = getImage(ImageRole.Height) or Image.blank(normal.size, (0.5,))
+
+		return Material(
 			self.mode,
 			GameTarget.V2011,
 			normal.size,

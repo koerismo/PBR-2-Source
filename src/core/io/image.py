@@ -48,7 +48,7 @@ class Image():
 	@staticmethod
 	def blank(size: tuple[int, int], color: tuple[int|float, ...]=(1, 1, 1), dtype: DTypeLike='float32') -> 'Image':
 		''' Creates a blank image by size, type, and color. '''
-		data = np.ndarray((*size, len(color)), dtype, order='C')
+		data = np.ndarray((size[1], size[0], len(color)), dtype, order='C')
 		data.fill(1)
 		data *= color
 		return Image(data)
@@ -73,21 +73,18 @@ class Image():
 
 		if self.channels == 1:
 			self.data = self.data.reshape((self.size[1], self.size[0], 1))
-
-
-	def resize(self, size: tuple[int, int], sampler: PIL.Image.Resampling|None=None) -> 'Image':
-		''' Resizes this image with the PIL backend. '''
-		data = self.data if self.channels > 1 else self.data.reshape((self.size[1], self.size[0]))
-		pimg = PIL.Image.fromarray(data)
-		pimg = pimg.resize(size, sampler)
-		return Image(np.asarray(pimg).copy())
+	
+	def resize(self, size: tuple[int, int]) -> 'Image':
+		''' Resizes this image if necessary. '''
+		if self.size == size: return self
+		return Image.backend.resize(self, size)
 
 	def convert(self, dtype: DTypeLike, clip=False) -> 'Image':
 		''' Returns a copy of this image, converted to the specified datatype. '''
 		obj_dtype = np.dtype(dtype)
 		max_from: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8) - 1
 		max_to: int   = 1 if obj_dtype.kind == 'f' else 2**(obj_dtype.itemsize*8) - 1
-		new_data = self.data.copy('C') / max_from * max_to
+		new_data = self.data.copy('C') * (max_to / max_from)
 
 		if clip:
 			new_data = new_data.clip(0, max_to)

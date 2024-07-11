@@ -4,6 +4,7 @@ import imageio.v3 as imageio
 from pathlib import Path
 
 from imageio.core.request import Request
+from imageio.core.format import Array
 from imageio.typing import ArrayLike
 import imageio.core as imcore
 import imageio.plugins as implugins
@@ -11,6 +12,7 @@ import imageio.plugins as implugins
 from .image import Image, IOBackend
 import numpy as np
 import srctools.vtf as vtf
+from srctools.vtf import VTF, ImageFormats
 
 class ImIOBackend(IOBackend):
 	@staticmethod
@@ -26,6 +28,10 @@ class ImIOBackend(IOBackend):
 			# Wrap the error message, since the default one is totally useless.
 			_, _, ext = str(path).rpartition('.')
 			raise TypeError(f'Invalid datatype - attempted to save {image.data.dtype} data to a ".{ext}" file! '+str(e))
+
+	@staticmethod
+	def resize(image: Image, dims: tuple[int, int]) -> Image:
+		raise NotImplementedError('The ImageIO backend cannot resize images!')
 
 class VtfFormat(imcore.format.Format):
 
@@ -59,16 +65,16 @@ class VtfFormat(imcore.format.Format):
 			format = None
 			flags = vtf.VTFFlags.EMPTY
 			match (bands, im.dtype):
-				case (1, 'uint8'): format = vtf.ImageFormats.I8
-				case (3, 'uint8'): format = vtf.ImageFormats.RGB888
+				case (1, 'uint8'): format = ImageFormats.I8
+				case (3, 'uint8'): format = ImageFormats.RGB888
 				case (4, 'uint8'):
-					format = vtf.ImageFormats.RGBA8888
+					format = ImageFormats.RGBA8888
 					flags |= vtf.VTFFlags.EIGHTBITALPHA
 				case (4, 'uint16'):
-					format = vtf.ImageFormats.RGBA16161616
+					format = ImageFormats.RGBA16161616
 					flags |= vtf.VTFFlags.EIGHTBITALPHA
 				case (4, 'float16'):
-					format = vtf.ImageFormats.RGBA16161616F
+					format = ImageFormats.RGBA16161616F
 					flags |= vtf.VTFFlags.EIGHTBITALPHA
 
 			if format is None:
@@ -77,6 +83,27 @@ class VtfFormat(imcore.format.Format):
 			self.vtf = vtf.VTF(width, height, (7, self.version), fmt=format, flags=flags)
 			self.vtf.get().copy_from(im.tobytes('C'), format)
 			self.vtf.save(self.file)
+
+	class Reader(imcore.format.Format.Reader):
+		vtf: VTF
+
+		def _open(self, **kwargs) -> None:
+			self.vtf = VTF.read(self.request.get_file())
+
+		def _get_data(self, index: int):
+			frame = self.vtf.get()
+			frame.load()
+			data = np.array(frame._data).reshape((frame.width, frame.height, 4))
+			return (data, {})
+		
+		def _get_meta_data(self, index: int) -> Dict[str, Any]:
+			return {}
+		
+		def _get_length(self) -> int:
+			return 1
+
+		def _close(self) -> None:
+			return super()._close()
 
 
 implugins.formats.add_format(VtfFormat("VTF", "Implements the Valve Texture Format", ["vtf"], "i"))
