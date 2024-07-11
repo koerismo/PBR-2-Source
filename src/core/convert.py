@@ -1,8 +1,10 @@
-from .material import Material, MaterialMode, Texture
+# from PIL.Image import Image
+# import PIL.Image
+from .material import Material, MaterialMode, Texture, GameTarget
 from . import texops
 from .io.image import Image
 
-def from_images(src: dict[str, Image], name: str, mode: MaterialMode) -> "Material":
+def from_images(src: dict[str, Image], name: str, mode: MaterialMode, target: GameTarget) -> "Material":
 	albedo = src.get('albedo')
 	normal = src.get('normal')
 	roughness = src.get('roughness')
@@ -21,6 +23,7 @@ def from_images(src: dict[str, Image], name: str, mode: MaterialMode) -> "Materi
 
 	return Material(
 		mode,
+		GameTarget.V2011,
 		normal.size,
 		name,
 		albedo=texops.normalize(albedo, mode='RGB'),

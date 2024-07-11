@@ -1,12 +1,31 @@
 from typing import Any, Dict
+
+import imageio.v3 as imageio
+from pathlib import Path
+
 from imageio.core.request import Request
 from imageio.typing import ArrayLike
 import imageio.core as imcore
 import imageio.plugins as implugins
 
+from .image import Image, IOBackend
 import numpy as np
 import srctools.vtf as vtf
 
+class ImIOBackend(IOBackend):
+	@staticmethod
+	def load(path: str|Path) -> Image:
+		src = imageio.imread(Path(path) if isinstance(path, str) else path)
+		return Image(src)
+
+	@staticmethod
+	def save(image: Image, path: str | Path, version: int=5) -> None:
+		try:
+			imageio.imwrite(path if isinstance(path, Path) else Path(path), image.data, version=version)
+		except TypeError as e:
+			# Wrap the error message, since the default one is totally useless.
+			_, _, ext = str(path).rpartition('.')
+			raise TypeError(f'Invalid datatype - attempted to save {image.data.dtype} data to a ".{ext}" file! '+str(e))
 
 class VtfFormat(imcore.format.Format):
 
@@ -21,10 +40,12 @@ class VtfFormat(imcore.format.Format):
 
 
 	class Writer(imcore.format.Format.Writer):
+		version: int
 
 		def _open(self, **kwargs) -> None:
 			self.file = self.request.get_file()
 			self.vtf = None
+			self.version = kwargs.get('version', 5)
 
 		def _close(self) -> None:
 			pass
@@ -53,7 +74,7 @@ class VtfFormat(imcore.format.Format):
 			if format is None:
 				raise TypeError(f"Could not match format {im.dtype}x{bands}!")
 
-			self.vtf = vtf.VTF(width, height, (7, 5), fmt=format, flags=flags)
+			self.vtf = vtf.VTF(width, height, (7, self.version), fmt=format, flags=flags)
 			self.vtf.get().copy_from(im.tobytes('C'), format)
 			self.vtf.save(self.file)
 
