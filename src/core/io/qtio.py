@@ -51,7 +51,7 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=5) -> None:
+	def save(image: Image, path: str | Path, version: int=4) -> None:
 		height, width, bands = image.data.shape
 
 		path = Path(path)

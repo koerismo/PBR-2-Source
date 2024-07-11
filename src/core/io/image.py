@@ -1,7 +1,6 @@
 import numpy as np
 from numpy.typing import DTypeLike
 from pathlib import Path
-import PIL.Image
 from typing import Literal
 from abc import abstractmethod
 
@@ -24,7 +23,6 @@ class IOBackend():
 	@staticmethod
 	@abstractmethod
 	def resize(image: 'Image', dims: tuple[int, int]) -> 'Image':
-		''' TODO: Move resizing to the backend-specific implementation, since QT has its own (probably better) way of resizing! '''
 		...
 
 class Image():

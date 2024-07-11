@@ -1,5 +1,6 @@
 from version import __version__
 from config import AppConfig, AppTheme, load_config
+from core.material import GameTarget, MaterialMode
 
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET
 from .backend import CoreBackend, ImageRole
@@ -13,7 +14,7 @@ from PySide6.QtWidgets import (
 	QWidget, QFrame, QApplication, QMessageBox,
 	QBoxLayout, QHBoxLayout, QVBoxLayout,
 	QLabel, QLineEdit, QToolButton,
-	QFileDialog, QGroupBox, QProgressBar, QPushButton,
+	QFileDialog, QGroupBox, QProgressBar, QPushButton, QComboBox,
 	QSizePolicy
 )
 
@@ -30,7 +31,6 @@ class RClickToolButton( QToolButton ):
 
 
 class PickableImage( QFrame ):
-	# TODO: Emit loaded image instead of path to avoid reloading? Maybe use self.icon.toImage()
 	picked = Signal( str, Path, object, name='Picked', arguments=['Kind', 'Path', 'ReturnBack'] )
 	''' Fires when an image has been picked from the filesystem. (Path|None) '''
 
@@ -174,12 +174,15 @@ class MainWindow( QWidget ):
 
 		right = QGroupBox(title='Output')
 		rightLayout = QVBoxLayout(right)
+		rightLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
 		inner.addWidget(right)
 
 		footer = QHBoxLayout()
 		root.addLayout(footer)
 
+
 		''' ========================== LEFT ========================== '''
+
 
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
@@ -196,8 +199,56 @@ class MainWindow( QWidget ):
 			PickableImage('Emission', 'emit', False)
 		])
 
+
 		''' ========================== RIGHT ========================== '''
 
+
+		rightLayout.addWidget(QLabel('Game'))
+
+		gameDropdown = QComboBox()
+		rightLayout.addWidget(gameDropdown)
+		for text,data in [
+			('Half Life 2', GameTarget.V2006),
+			('HL2: E2 / Portal / TF2', GameTarget.V2007),
+			('Portal 2 / Alien Swarm', GameTarget.V2011),
+			('CS: GO', GameTarget.V2012),
+			('Strata', GameTarget.V2023)
+		]: gameDropdown.addItem(text, data)
+		gameDropdown.setCurrentIndex(2)
+
+		rightLayout.addWidget(QLabel('Mode'))
+
+		modeDropdown = QComboBox()
+		rightLayout.addWidget(modeDropdown)
+
+		for text,data in [
+			('Model: PBR', MaterialMode.PBRModel),
+			('Model: Phong+Envmap', MaterialMode.PhongEnvmap),
+			('Model: Phong+Envmap+Alpha', MaterialMode.PhongEnvmapAlpha),
+			('Model: Phong+Envmap+Emission', MaterialMode.PhongEnvmapEmit),
+			('Brush: PBR', MaterialMode.PBRBrush),
+			('Brush: Envmap', MaterialMode.Envmap),
+			('Brush: Envmap+Alpha', MaterialMode.EnvmapAlpha),
+			('Brush: Envmap+Emission', MaterialMode.EnvmapEmit),
+		]: modeDropdown.addItem(text, data)
+		modeDropdown.setCurrentIndex(0)
+
+		rightLayout.addWidget(QLabel('Reflections'))
+
+		envmapDropdown = QComboBox()
+		rightLayout.addWidget(envmapDropdown)
+		for text,data in [
+			('None', None),
+			('Cubemap', 'env_cubemap'),
+			('(P2) Black Wall 002a', 'metal/black_wall_envmap_002a'),
+			('(CSGO) Generic Metal 01', 'environment maps/metal_generic_001'),
+			('(CSGO) Generic Metal 02', 'environment maps/metal_generic_002'),
+			('(CSGO) Generic Metal 03', 'environment maps/metal_generic_003'),
+			('(CSGO) Generic Metal 04', 'environment maps/metal_generic_004'),
+			('(CSGO) Generic Metal 05', 'environment maps/metal_generic_005'),
+			('(CSGO) Generic Metal 06', 'environment maps/metal_generic_006')
+		]: envmapDropdown.addItem(text, data)
+		envmapDropdown.setCurrentIndex(1)
 
 
 		''' ========================== FOOTER ========================== '''
@@ -206,6 +257,10 @@ class MainWindow( QWidget ):
 		self.progressBar.setValue(10)
 		self.progressBar.setMaximum(100)
 		footer.addWidget(self.progressBar)
+
+		self.exportButton = QPushButton('Watch')
+		self.exportButton.clicked.connect(self.export)
+		footer.addWidget(self.exportButton)
 
 		self.exportButton = QPushButton('Export')
 		self.exportButton.clicked.connect(self.export)
@@ -225,12 +280,21 @@ class MainWindow( QWidget ):
 			material = self.backend.make_material(self.config.reloadOnExport)
 			self.progressBar.setValue(50)
 			self.progressBar.setValue(100)
+			
+			targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
+			if not len(targetPath): raise InterruptedError()
+			self.backend.pick_vmt(targetPath)
+			self.backend.export(material)
+
 	
 		except Exception as e:
-			print('The export failed!\n\n', format_exc())
-			message = QMessageBox(QMessageBox.Icon.Critical, 'Failed to export!', str(e))
-			message.exec()
 			self.progressBar.setValue(0)
+			if isinstance(e, InterruptedError):
+				print('The export was cancelled by the user.')
+			else:
+				print('The export failed!\n\n', format_exc())
+				message = QMessageBox(QMessageBox.Icon.Critical, 'Failed to export!', str(e))
+				message.exec()
 		
 		finally:
 			self.exportButton.setEnabled(True)

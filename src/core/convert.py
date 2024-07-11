@@ -4,7 +4,7 @@ from .material import Material, MaterialMode, Texture, GameTarget
 from . import texops
 from .io.image import Image
 
-def from_images(src: dict[str, Image], name: str, mode: MaterialMode, target: GameTarget) -> "Material":
+def from_images(src: dict[str, Image], name: str, mode: MaterialMode, target: GameTarget) -> 'Material':
 	albedo = src.get('albedo')
 	normal = src.get('normal')
 	roughness = src.get('roughness')
@@ -40,25 +40,25 @@ def export(src: Material) -> list[Texture]:
 	textures = []
 	basecolor = texops.make_basecolor(src)
 	basecolor = basecolor.convert('uint8')
-	textures.append(Texture(basecolor, "_albedo"))
+	textures.append(Texture(basecolor, '_albedo'))
 
 	if src.mode > 1:
 		bumpmap = texops.make_bumpmap(src)
 		bumpmap = bumpmap.convert('uint8')
-		textures.append(Texture(bumpmap, "_bump"))
+		textures.append(Texture(bumpmap, '_bump'))
 
 		phong_exp = texops.make_phong_exponent(src)
 		phong_exp = phong_exp.convert('uint8', clip=True)
-		textures.append(Texture(phong_exp, "_phongexp"))
+		textures.append(Texture(phong_exp, '_phongexp'))
 
 		if src.mode > 2:
 			envmap_mask = texops.make_envmask(src)
 			envmap_mask = envmap_mask.convert('uint8')
-			textures.append(Texture(envmap_mask, "_envmap"))
+			textures.append(Texture(envmap_mask, '_envmap'))
 
 	else:
 		mrao = texops.make_mrao(src)
 		mrao = mrao.convert('uint8')
-		textures.append(Texture(mrao, "_mrao"))
+		textures.append(Texture(mrao, '_mrao'))
 
 	return textures

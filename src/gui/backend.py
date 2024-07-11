@@ -1,16 +1,17 @@
-from PySide6.QtCore import Signal, Slot
+# from PySide6.QtCore import Signal, Slot
+# from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QColorSpace
-from PySide6.QtCore import Qt
 
 from core.io.qtio import QtIOBackend, qimage_to_image, image_to_qimage
 
 from core import texops
 from core.convert import export as core_export
+from core.vmt import make_vmt as core_make_vmt
 from core.io.image import Image
 from core.material import Material, MaterialMode, GameTarget
 
+from pathlib import Path
 from enum import StrEnum
-import numpy as np
 
 class ImageRole(StrEnum):
 	Albedo = 'albedo'
@@ -38,6 +39,7 @@ class CoreBackend():
 	normalPath: str|None = None
 	heightPath: str|None = None
 
+	path: Path|None = None
 	name: str = 'ThisShouldNeverAppear'
 	game: GameTarget = GameTarget.V2011
 	mode: MaterialMode = MaterialMode.PBRModel
@@ -79,6 +81,12 @@ class CoreBackend():
 			self.__setattr__(role, None)
 			return None
 
+	def pick_vmt(self, pathStr: str):
+		path = Path(pathStr)
+		self.path = path.parent
+		self.name = path.with_suffix('').name # TODO: Include slashes from material parent directory
+		print(self.path, self.name)
+
 	def make_material(self, noCache: bool=False):
 		''' Generate the material from the collected textures. '''
 
@@ -104,7 +112,7 @@ class CoreBackend():
 
 		return Material(
 			self.mode,
-			GameTarget.V2011,
+			self.game,
 			normal.size,
 			self.name,
 			albedo=texops.normalize(albedo, mode='RGB'),
@@ -115,3 +123,20 @@ class CoreBackend():
 			normal=texops.normalize(normal, mode='RGB'),
 			height=texops.normalize(height, normal.size, mode='L') if height else None
 		)
+
+	def export(self, material: Material):
+		assert self.path != None and self.name != None, 'Something has gone very very wrong. Find a developer!'
+
+		# TODO: This is kinda dumb
+		material.name = self.name
+
+		textures = core_export(material)
+		textureVersion = GameTarget.vtf_version(material.target)
+		vmt = core_make_vmt(material)
+
+		with open(self.path / (self.name + '.vmt'), 'w') as vmtFile:
+			vmtFile.write(vmt)
+
+		for texture in textures:
+			fullPath = self.path / (self.name + texture.name + '.vtf')
+			texture.image.save(fullPath, version=textureVersion)
