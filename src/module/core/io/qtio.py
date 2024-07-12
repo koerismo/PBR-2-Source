@@ -27,7 +27,7 @@ def qimage_to_image(im: QImage) -> Image:
 	im = im.convertToFormat(QImage.Format.Format_RGBA16FPx4)
 	ptr = im.constBits()
 	# TODO: Yes, width/height are swapped intentionally. No, I don't completely understand it either.
-	src = np.frombuffer(ptr, dtype=np.float16).reshape(im.height(), im.width(), im.bitPlaneCount() // 16)
+	src = np.frombuffer(ptr, dtype=np.float16).copy().reshape(im.height(), im.width(), 4)
 	return Image(src)
 
 class QtIOBackend(IOBackend):

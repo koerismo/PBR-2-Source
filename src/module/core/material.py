@@ -2,9 +2,15 @@ from .io.image import Image
 from enum import IntEnum
 
 class MaterialMode(IntEnum):
+	# TODO: In Garry's Mod, phong+envmap means that phong has to use the basetexture alpha, and that envmap has to use the normal alpha.
+	# A case should be added for swapping these textures in the Material
+	# $normalmapalphaenvmapmask 1
+	# $basemapalphaphongmask 1
+
 	PBRModel			= 0		# PBR: PBR model mode
 	PBRBrush			= 1		# PBR: PBR brush mode
 	PhongEnvmap			= 10	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses basetexture alpha
+								# GMOD: phong mask uses basetexture alpha, envmap mask uses normal map alpha
 	PhongEnvmapAlpha	= 11	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses its own mask
 	PhongEnvmapEmit		= 12	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses its own mask, emission uses basetexture alpha
 	Envmap				= 20	# LightmappedGeneric: Envmap uses basetexture alpha
@@ -44,16 +50,15 @@ class MaterialMode(IntEnum):
 		return mat == MaterialMode.PhongEnvmapEmit or mat == MaterialMode.EnvmapEmit
 
 class GameTarget(IntEnum):
-	V2006 = 0	# HL2, EP1
 	V2007 = 1	# EP2, Portal, TF2
-	V2011 = 2	# Alien Swarm, Portal 2
-	V2012 = 3	# CS:GO
-	V2023 = 4	# Strata Source
+	VGMOD = 2	# Garry's Mod
+	V2011 = 3	# Alien Swarm, Portal 2
+	V2023 = 4	# CS:GO, Strata Source
 
 	@staticmethod
 	def vtf_version(target: 'GameTarget'):
 		if target >= GameTarget.V2011: return 5
-		if target <= GameTarget.V2006: return 2
+		if target <= GameTarget.V2007: return 2
 		return 3
 
 
@@ -106,6 +111,10 @@ class Material:
 
 		self.normal = normal
 		self.height = height
+	
+	def swap_phong_envmap(self):
+		''' If true, phong mask uses basetexture alpha, and envmap mask uses normal map alpha. '''
+		return self.target == GameTarget.VGMOD and self.mode == MaterialMode.PhongEnvmap
 
 class Texture():
 	image: Image

@@ -7,7 +7,7 @@ from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET, STYLESHEET_MIN
 from .backend import CoreBackend, ImageRole
 
 from typing import Any
-from sys import argv
+from sys import argv, platform
 from traceback import format_exc
 import subprocess
 
@@ -123,6 +123,7 @@ class PickableImage( QFrame ):
 	def dropEvent(self, event):
 		fileUrl = event.mimeData().text()
 		rawFilePath = uri_to_path(fileUrl)
+		if platform == 'win32': rawFilePath = rawFilePath[1:]
 		filePath = Path(rawFilePath)
 		if not filePath.is_file(): return
 		event.accept()
@@ -275,11 +276,10 @@ class MainWindow( QMainWindow ):
 		self.gameDropdown = gameDropdown = QDataComboBox()
 		rightLayout.addWidget(gameDropdown)
 		for text,data in [
-			('Half Life 2', GameTarget.V2006),
 			('HL2: E2 / Portal / TF2', GameTarget.V2007),
 			('Portal 2 / Alien Swarm', GameTarget.V2011),
-			('CS: GO', GameTarget.V2012),
-			('Strata', GameTarget.V2023)
+			('Garry\'s Mod', GameTarget.VGMOD),
+			('CS:GO / Strata', GameTarget.V2023),
 		]: gameDropdown.addItem(text, data)
 		gameDropdown.setCurrentData(Preset.game)
 
@@ -380,6 +380,7 @@ class MainWindow( QMainWindow ):
 		set_icon(img)
 
 	def pick_target(self):
+		print('Picking target')
 		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
 		if len(targetPath): self.target = targetPath
 
@@ -405,7 +406,6 @@ class MainWindow( QMainWindow ):
 			self.backend.pick_vmt(targetPath)
 			self.backend.export(material)
 			self.progressBar.setValue(100)
-			# QApplication.processEvents()
 
 			if self.config.hijackTarget:
 				subprocess.Popen([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
@@ -481,6 +481,9 @@ class MainWindow( QMainWindow ):
 		selected = QFileDialog.getOpenFileName(self, caption='Loading preset...', filter='JSON Presets (*.json)')[0]
 		if not len(selected): return
 
+		# Reset target path
+		self.target = None
+
 		preset = Preset.load(selected)
 		self.gameDropdown.setCurrentData(preset.game)
 		self.modeDropdown.setCurrentData(preset.mode)
@@ -491,7 +494,9 @@ class MainWindow( QMainWindow ):
 	def save_preset(self):
 		selected = QFileDialog.getSaveFileName(self, caption='Saving preset...', filter='JSON Presets (*.json)')[0]
 		if not len(selected): return
-		print(selected)
+
+		# Reset target path
+		self.target = None
 		
 		preset = Preset()
 		self.backend.save_preset(preset)

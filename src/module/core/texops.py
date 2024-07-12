@@ -1,6 +1,7 @@
 from typing import Literal
 from .io.image import Image
 from .material import Material, MaterialMode, NormalType
+import numpy as np
 
 '''
 References:
@@ -36,8 +37,10 @@ def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'R
 	if size:
 		img = img.resize(size)
 
+	img = img.convert(np.float16)
+
 	if mode:
-		img = img.convert('float32').normalize(mode)
+		img = img.normalize(mode)
 
 	return img
 
@@ -99,20 +102,27 @@ def make_basecolor(mat: Material) -> Image:
 		mask.mult(ao)
 
 	basetexture = mat.albedo.copy().mult(mask)
+	(r, g, b) = basetexture.split()[:3]
 
-	# Envmask as basetexture alpha
-	if MaterialMode.embed_envmap(mat.mode):
-		rgba = basetexture.split()
-		envmask = make_envmask(mat)
-		basetexture = Image.merge((rgba[0], rgba[1], rgba[2], envmask))
+	# Do we need to embed the phong mask instead of envmap mask?
+	if Material.swap_phong_envmap(mat):
+		# Phong mask as basetexture alpha
+		if MaterialMode.has_phong(mat.mode):
+			phongmask = make_phong_mask(mat)
+			basetexture = Image.merge((r, g, b, phongmask))
+
+	else:
+		# Envmap mask as basetexture alpha
+		if MaterialMode.embed_envmap(mat.mode):
+			envmask = make_envmask(mat)
+			basetexture = Image.merge((r, g, b, envmask))
 
 	# Emission as basetexture alpha
 	# TODO: Burn emission color into image when using VLG/LMG
 	if MaterialMode.embed_selfillum(mat.mode):
 		assert mat.emit != None, 'An emissive texture is required for this mode!'
-		rgba = basetexture.split()
 		emitmask = mat.emit.copy().grayscale()
-		basetexture = Image.merge((rgba[0], rgba[1], rgba[2], emitmask))
+		basetexture = Image.merge((r, g, b, emitmask))
 
 	return basetexture
 
@@ -125,9 +135,15 @@ def make_bumpmap(mat: Material) -> Image:
 	(r, g, b) = mat.normal.split()
 	if mat.normal_type == NormalType.GL: g.invert()
 
-	if MaterialMode.has_phong(mat.mode):
-		a = make_phong_mask(mat)
-		return Image.merge((r, g, b, a))
+	# Do we need to embed the envmap mask instead of phong mask?
+	if Material.swap_phong_envmap(mat):
+		if MaterialMode.embed_envmap(mat.mode):
+			envmask = make_envmask(mat)
+			return Image.merge((r, g, b, envmask))
+	else:
+		if MaterialMode.has_phong(mat.mode):
+			phongmask = make_phong_mask(mat)
+			return Image.merge((r, g, b, phongmask))
 	
 	if MaterialMode.is_pbr(mat.mode) and mat.height:
 		return Image.merge((r, g, b, mat.height))

@@ -21,10 +21,11 @@ from .material import Material, MaterialMode, GameTarget
 
 def game_envmaptint(game: GameTarget, vlg: bool) -> float:
 	if game > GameTarget.V2011: return 1.0
-	return .05 if vlg else .05**2.2
+	return .1 if vlg else .1**2.2
 
 def game_lightscale(game: GameTarget) -> float|None:
 	if game > GameTarget.V2011: return 1.0
+	if game == GameTarget.VGMOD: return 1.0
 	return None
 
 
@@ -72,7 +73,12 @@ def make_vmt(mat: Material) -> str:
 
 
 		if MaterialMode.embed_envmap(mat.mode):
-			write(
+			if Material.swap_phong_envmap(mat):
+				write(
+				'	$normalmapalphaenvmapmask	1',
+				'	$basemapalphaphongmask		1')
+			else:
+				write(
 				'	$basetextureenvmapmask		1')
 		else:
 			write(

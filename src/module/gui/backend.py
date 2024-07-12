@@ -128,6 +128,8 @@ class CoreBackend():
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
 		height = getImage(ImageRole.Height) or Image.blank(normal.size, (0.5,))
 
+		print('Constructing material...')
+
 		return Material(
 			self.mode,
 			self.game,
@@ -148,10 +150,14 @@ class CoreBackend():
 		# TODO: This is kinda dumb
 		material.name = self.name
 
+		print('Creating textures...')
 		textures = core_export(material)
 		textureVersion = GameTarget.vtf_version(material.target)
+
+		print('Making VMT...')
 		vmt = core_make_vmt(material)
 
+		print('Writing files...')
 		with open(self.path / (self.name + '.vmt'), 'w') as vmtFile:
 			vmtFile.write(vmt)
 
