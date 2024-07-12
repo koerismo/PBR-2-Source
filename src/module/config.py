@@ -1,4 +1,4 @@
-import tomllib
+import tomlkit
 from pathlib import Path
 from enum import IntEnum
 from .version import __version__
@@ -26,6 +26,12 @@ class AppTheme(IntEnum):
 	Native = 2
 
 class AppConfig():
+	__toml__: tomlkit.TOMLDocument|None = None
+	def getToml(self):
+		return self.__toml__ or tomlkit.TOMLDocument()
+	def setToml(self, toml: tomlkit.TOMLDocument):
+		self.__toml__ = toml
+
 	appTheme = AppTheme.Default
 	reloadOnExport = True
 	hijackTarget: str|None = None
@@ -40,7 +46,8 @@ def load_config(gui=True) -> AppConfig:
 	
 	try:
 		with open(config_path, 'rb') as file:
-			rawConf = tomllib.load(file)
+			rawConf = tomlkit.load(file)
+			parsed.setToml(rawConf)
 
 			rawAppTheme: AppTheme = rawConf.get('app-theme', 0)
 			if not isinstance(rawAppTheme, int): rawAppTheme = AppTheme.Default
@@ -67,11 +74,11 @@ def load_config(gui=True) -> AppConfig:
 
 def save_config(conf: AppConfig):
 	with open(config_path, 'w') as file:
-		file.writelines([
-			f'app-theme = {conf.appTheme}\n',
-			f'reload-on-export = {str(conf.reloadOnExport).lower()}\n',
-			f'hijack-target = {conf.hijackTarget or EMPTY_QUOTES}\n'
-		])
+		toml = conf.getToml()
+		toml['app-theme'] = conf.appTheme
+		toml['reload-on-export'] = conf.reloadOnExport
+		toml['hijack-target'] = conf.hijackTarget or EMPTY_QUOTES
+		tomlkit.dump(toml, file)
 
 def make_config():
 	with open(config_path, 'w') as file:
