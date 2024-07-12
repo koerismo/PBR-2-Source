@@ -2,11 +2,6 @@ from .io.image import Image
 from enum import IntEnum
 
 class MaterialMode(IntEnum):
-	# TODO: In Garry's Mod, phong+envmap means that phong has to use the basetexture alpha, and that envmap has to use the normal alpha.
-	# A case should be added for swapping these textures in the Material
-	# $normalmapalphaenvmapmask 1
-	# $basemapalphaphongmask 1
-
 	PBRModel			= 0		# PBR: PBR model mode
 	PBRBrush			= 1		# PBR: PBR brush mode
 	PhongEnvmap			= 10	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses basetexture alpha
