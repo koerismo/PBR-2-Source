@@ -54,7 +54,7 @@ class GameTarget(IntEnum):
 	def vtf_version(target: 'GameTarget'):
 		if target >= GameTarget.V2011: return 5
 		if target <= GameTarget.V2006: return 2
-		return 4
+		return 3
 
 
 class NormalType(IntEnum):
@@ -74,7 +74,7 @@ class Material:
 	ao: Image|None			# Linear f
 
 	normal: Image			# Linear RGBAf
-	normal_type: NormalType
+	normal_type: NormalType = NormalType.DX
 
 	height: Image|None		# Linear f
 

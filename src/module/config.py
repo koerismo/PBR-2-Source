@@ -13,8 +13,9 @@ app-theme = 0 # 0/1/2
 reload-on-export = false # true/false
 '''
 
-if getattr(sys, 'frozen', False):
-	config_path = Path(sys.executable).parent / 'appconfig.toml'
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+	root_path = getattr(sys, '_MEIPASS')
+	config_path = Path(root_path).parent / 'appconfig.toml'
 else:
 	config_path = Path('./appconfig.toml').absolute()
 
@@ -25,7 +26,7 @@ class AppTheme(IntEnum):
 
 class AppConfig():
 	appTheme = AppTheme.Default
-	reloadOnExport = False
+	reloadOnExport = True
 	hijackTarget: str|None = None
 
 def load_config(gui=True) -> AppConfig:

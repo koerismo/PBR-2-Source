@@ -43,8 +43,8 @@ class CoreBackend():
 	path: Path|None = None
 	# envmap: str = 'env_cubemap'
 	name: str = 'ThisShouldNeverAppear'
-	game: GameTarget = GameTarget.V2011
-	mode: MaterialMode = MaterialMode.PBRModel
+	game: GameTarget = Preset.game
+	mode: MaterialMode = Preset.mode
 
 	def __init__(self) -> None:
 		pass
@@ -55,6 +55,8 @@ class CoreBackend():
 		pass
 	
 	def save_preset(self, preset: Preset):
+		preset.game = self.game
+		preset.mode = self.mode
 		preset.set_path(ImageRole.Albedo, self.albedoPath)
 		preset.set_path(ImageRole.Roughness, self.roughnessPath)
 		preset.set_path(ImageRole.Metallic, self.metallicPath)

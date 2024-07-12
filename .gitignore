@@ -1,4 +1,6 @@
-/src/test/
+src/test/
+dist/
+build/
 venv/
 
 .DS_Store

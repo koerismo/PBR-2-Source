@@ -6,6 +6,7 @@ from ..preset import Preset
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET, STYLESHEET_MIN
 from .backend import CoreBackend, ImageRole
 
+from typing import Any
 from sys import argv
 from traceback import format_exc
 import subprocess
@@ -24,6 +25,14 @@ from urllib.parse import unquote_plus, urlparse
 def uri_to_path(uri: str) -> str:
 	return unquote_plus(urlparse(uri).path)
 
+class QDataComboBox( QComboBox ):
+	def setCurrentData(self, data: Any):
+		index = -1
+		for i in range(self.count()):
+			if data == self.itemData(i):
+				index = i
+				break
+		self.setCurrentIndex(index)
 
 class RClickToolButton( QToolButton ):
 	rightClicked = Signal( name='RightClicked' )
@@ -166,6 +175,7 @@ class MainWindow( QMainWindow ):
 	progressBar: QProgressBar
 
 	def __init__(self, config: AppConfig, parent=None) -> None:
+		#region init
 		super().__init__(parent)
 
 		self.setWindowTitle( 'PBR-2-Source v'+__version__ )
@@ -183,15 +193,23 @@ class MainWindow( QMainWindow ):
 		self.config = config
 		self.backend = CoreBackend()
 
+		#endregion
 		''' ========================== MENU ========================== '''
+		#region menu
 
 		menuBar = QMenuBar(self)
 		# menuBar.setNativeMenuBar(False)
 
 		self.setMenuBar(menuBar)
 		fileMenu = menuBar.addMenu('File')
-		fileMenu.addAction('Load Preset').triggered.connect(self.load_preset)
-		fileMenu.addAction('Save Preset').triggered.connect(self.save_preset)
+		loadAction = fileMenu.addAction('Load Preset')
+		loadAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_O))
+		loadAction.triggered.connect(self.load_preset)
+
+		saveAction = fileMenu.addAction('Save Preset')
+		saveAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_S))
+		saveAction.triggered.connect(self.save_preset)
+		
 		fileMenu.addSeparator()
 
 		self.watchAction = fileMenu.addAction('Watch')
@@ -204,8 +222,10 @@ class MainWindow( QMainWindow ):
 		exportAsAction = fileMenu.addAction('Export As...')
 		exportAsAction.triggered.connect(self.export_as)
 		exportAsAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E))
-
+		
+		#endregion
 		''' ========================== LAYOUT ========================== '''
+		#region layout
 
 		rootWidget = QWidget(self)
 		root = QVBoxLayout(rootWidget)
@@ -226,9 +246,9 @@ class MainWindow( QMainWindow ):
 		footer = QHBoxLayout()
 		root.addLayout(footer)
 
-
+		# endregion
 		''' ========================== LEFT ========================== '''
-
+		#region left
 
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
@@ -246,13 +266,13 @@ class MainWindow( QMainWindow ):
 			PickableImage('Emission', 'emit', False)
 		])
 
-
+		#endregion
 		''' ========================== RIGHT ========================== '''
-
+		#region right
 
 		rightLayout.addWidget(QLabel('Game'))
 
-		gameDropdown = QComboBox()
+		self.gameDropdown = gameDropdown = QDataComboBox()
 		rightLayout.addWidget(gameDropdown)
 		for text,data in [
 			('Half Life 2', GameTarget.V2006),
@@ -261,7 +281,7 @@ class MainWindow( QMainWindow ):
 			('CS: GO', GameTarget.V2012),
 			('Strata', GameTarget.V2023)
 		]: gameDropdown.addItem(text, data)
-		gameDropdown.setCurrentIndex(2)
+		gameDropdown.setCurrentData(Preset.game)
 
 		def on_changed_game(x: int):
 			self.backend.game = gameDropdown.itemData(x)
@@ -269,9 +289,8 @@ class MainWindow( QMainWindow ):
 
 		rightLayout.addWidget(QLabel('Mode'))
 
-		modeDropdown = QComboBox()
+		self.modeDropdown = modeDropdown = QDataComboBox()
 		rightLayout.addWidget(modeDropdown)
-
 		for text,data in [
 			('Model: PBR', MaterialMode.PBRModel),
 			('Model: Phong+Envmap', MaterialMode.PhongEnvmap),
@@ -282,7 +301,7 @@ class MainWindow( QMainWindow ):
 			('Brush: Envmap+Alpha', MaterialMode.EnvmapAlpha),
 			('Brush: Envmap+Emission', MaterialMode.EnvmapEmit),
 		]: modeDropdown.addItem(text, data)
-		modeDropdown.setCurrentIndex(0)
+		modeDropdown.setCurrentData(Preset.mode)
 	
 		def on_changed_mode(x: int):
 			self.backend.mode = modeDropdown.itemData(x)
@@ -290,7 +309,7 @@ class MainWindow( QMainWindow ):
 
 		# rightLayout.addWidget(QLabel('Reflections'))
 
-		# envmapDropdown = QComboBox()
+		# envmapDropdown = QDataComboBox()
 		# rightLayout.addWidget(envmapDropdown)
 		# for text,data in [
 		# 	('None', None),
@@ -303,44 +322,45 @@ class MainWindow( QMainWindow ):
 		# 	('(CSGO) Generic Metal 05', 'environment maps/metal_generic_005'),
 		# 	('(CSGO) Generic Metal 06', 'environment maps/metal_generic_006')
 		# ]: envmapDropdown.addItem(text, data)
-		# envmapDropdown.setCurrentIndex(1)
+		# envmapDropdown.setCurrentData(Preset.envmap)
 
 		# def on_changed_envmap(x: int):
 		# 	self.backend.envmap = envmapDropdown.itemData(x)
 		# envmapDropdown.currentIndexChanged.connect(on_changed_envmap)
 
-		rightLayout.addWidget(QLabel('Material Hint'))
+		# rightLayout.addWidget(QLabel('Material Hint'))
 
-		hintDropdown = QComboBox()
-		rightLayout.addWidget(hintDropdown)
-		for text,data in [
-			('None', None),
-			('Brick', 'brick'),
-			('Concrete', 'concrete'),
-			('Rock', 'rock'),
-			('Metal', 'metal'),
-			('Wood', 'wood'),
-			('Dirt', 'dirt'),
-			('Grass', 'grass'),
-			('Sand', 'sand'),
-			('Water', 'water'),
-			('Ice', 'ice'),
-			('Snow', 'snow'),
-			('Flesh', 'flesh'),
-			('Foliage', 'foliage'),
-			('Glass', 'glass'),
-			('Tile', 'tile'),
-			('Cardboard', 'cardboard'),
-			('Plaster', 'plaster'),
-			('Plastic', 'plastic'),
-			('Rubber', 'rubber'),
-			('Carpet', 'carpet'),
-			('Computer', 'computer'),
-		]: hintDropdown.addItem(text, data)
-		hintDropdown.setCurrentIndex(0)
+		# self.hintDropdown = hintDropdown = QComboBox()
+		# rightLayout.addWidget(hintDropdown)
+		# for text,data in [
+		# 	('None', None),
+		# 	('Brick', 'brick'),
+		# 	('Concrete', 'concrete'),
+		# 	('Rock', 'rock'),
+		# 	('Metal', 'metal'),
+		# 	('Wood', 'wood'),
+		# 	('Dirt', 'dirt'),
+		# 	('Grass', 'grass'),
+		# 	('Sand', 'sand'),
+		# 	('Water', 'water'),
+		# 	('Ice', 'ice'),
+		# 	('Snow', 'snow'),
+		# 	('Flesh', 'flesh'),
+		# 	('Foliage', 'foliage'),
+		# 	('Glass', 'glass'),
+		# 	('Tile', 'tile'),
+		# 	('Cardboard', 'cardboard'),
+		# 	('Plaster', 'plaster'),
+		# 	('Plastic', 'plastic'),
+		# 	('Rubber', 'rubber'),
+		# 	('Carpet', 'carpet'),
+		# 	('Computer', 'computer'),
+		# ]: hintDropdown.addItem(text, data)
+		# hintDropdown.setCurrentData(None)
 
-
+		#endregion
 		''' ========================== FOOTER ========================== '''
+		#region footer
 
 		self.progressBar = QProgressBar()
 		self.progressBar.setValue(0)
@@ -351,6 +371,8 @@ class MainWindow( QMainWindow ):
 		self.exportButton.clicked.connect(self.export_as)
 		footer.addWidget(self.exportButton)
 		
+		#endregion
+
 	@Slot()
 	def picked(self, kind: ImageRole, path: Path|None, set_icon):
 		img = self.backend.pick(str(path) if path else None, kind)
@@ -383,9 +405,10 @@ class MainWindow( QMainWindow ):
 			self.backend.pick_vmt(targetPath)
 			self.backend.export(material)
 			self.progressBar.setValue(100)
+			# QApplication.processEvents()
 
 			if self.config.hijackTarget:
-				subprocess.run([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
+				subprocess.Popen([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
@@ -459,6 +482,10 @@ class MainWindow( QMainWindow ):
 		if not len(selected): return
 
 		preset = Preset.load(selected)
+		self.gameDropdown.setCurrentData(preset.game)
+		self.modeDropdown.setCurrentData(preset.mode)
+		# self.hintDropdown.setCurrentData(preset.hint)
+		# self.envmapDropdown.setCurrentData(preset.envmap)
 		self.update_from_preset.emit(preset)
 	
 	def save_preset(self):
