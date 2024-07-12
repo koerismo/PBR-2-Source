@@ -1,5 +1,5 @@
 PySide6>=6.5.3
 srctools>=2.3.14
-# Pillow>=10.0.1
 numpy>=1.26.0
+# Pillow>=10.0.1
 # imageio>=2.31.5
