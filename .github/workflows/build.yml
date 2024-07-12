@@ -1,0 +1,44 @@
+name: Freeze Application
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
+  # pull_request:
+  #   branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Package Application (Linux)
+      uses: JackMcKew/pyinstaller-action-linux@main
+      with:
+        path: src
+        spec: src/build.spec
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: pbr-2-source-linux
+        path: dist/PBR-2-Source
+  
+  build-windows:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Package Application (Windows)
+      uses: JackMcKew/pyinstaller-action-windows@main
+      with:
+        path: src
+        spec: src/build.spec
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: pbr-2-source-windows
+        path: dist/PBR-2-Source
+        
