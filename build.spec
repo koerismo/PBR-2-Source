@@ -41,4 +41,5 @@ coll = COLLECT(
     upx=True,
     upx_exclude=[],
     name='PBR-2-Source',
+    console=False,
 )

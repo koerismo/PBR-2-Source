@@ -1,2 +1,2 @@
 cd "%~dp0"
-python -m PyInstaller src/build.spec
+python -m PyInstaller build.spec
