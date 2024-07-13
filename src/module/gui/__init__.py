@@ -365,6 +365,9 @@ class MainWindow( QMainWindow ):
 		self.progressBar = QProgressBar()
 		self.progressBar.setValue(0)
 		self.progressBar.setMaximum(100)
+		self.progressBar.setTextVisible(True)
+		self.progressBar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		self.progressBar.setFormat('') # Avoid displaying a percentage
 		footer.addWidget(self.progressBar)
 
 		self.exportButton = QPushButton('Export As...')
@@ -395,6 +398,7 @@ class MainWindow( QMainWindow ):
 		QApplication.processEvents()
 
 		try:
+			self.progressBar.setFormat('Creating material...')
 			material = self.backend.make_material(self.config.reloadOnExport)
 			self.progressBar.setValue(50)
 
@@ -403,9 +407,14 @@ class MainWindow( QMainWindow ):
 			
 			targetPath: str = self.target # type: ignore
 
+			def log_callback(msg: str):
+				print(msg)
+				self.progressBar.setFormat(msg)
+
 			self.backend.pick_vmt(targetPath)
-			self.backend.export(material)
+			self.backend.export(material, log_callback)
 			self.progressBar.setValue(100)
+			self.progressBar.setFormat(f'Finished exporting {self.backend.path}{self.backend.name}.vmt!')
 
 			if self.config.hijackTarget:
 				subprocess.Popen([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
