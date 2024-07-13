@@ -13,6 +13,7 @@ from ..preset import Preset
 
 from pathlib import Path
 from enum import StrEnum
+from typing import Callable
 
 class ImageRole(StrEnum):
 	Albedo = 'albedo'
@@ -153,22 +154,28 @@ class CoreBackend():
 			height=texops.normalize(height, normal.size, mode='L') if height else None
 		)
 
-	def export(self, material: Material):
+	def export(self, material: Material, callback: Callable[[str], None] | None = None):
 		assert self.path != None and self.name != None, 'Something has gone very very wrong. Find a developer!'
 
 		# TODO: This is kinda dumb
 		material.name = self.name
 
-		print('Creating textures...')
+		if callback is not None:
+			callback('Making VMT...')
+
 		textures = core_export(material)
 		textureVersion = GameTarget.vtf_version(material.target)
 
-		print('Making VMT...')
+		if callback is not None:
+			callback('Making VMT...')
+
 		vmt = core_make_vmt(material)
 		
 		isolatedName = self.name.rsplit('/', 1)[-1]
 
-		print('Writing files...')
+		if callback is not None:
+			callback('Writing files...')
+
 		with open(self.path / (isolatedName + '.vmt'), 'w') as vmtFile:
 			vmtFile.write(vmt)
 
