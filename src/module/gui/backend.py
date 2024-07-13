@@ -102,8 +102,17 @@ class CoreBackend():
 	def pick_vmt(self, pathStr: str):
 		path = Path(pathStr)
 		self.path = path.parent
-		self.name = path.with_suffix('').name # TODO: Include slashes from material parent directory
-		print(self.path, self.name)
+
+		name = path.name.removesuffix('.vmt')
+		namePath = ''
+		useNamePath = False
+		for component in reversed(path.parts[:-1]):
+			if component == 'materials':
+				useNamePath = True
+				break
+			namePath = component + '/' + namePath
+
+		self.name = namePath+name if useNamePath else name
 
 	def make_material(self, noCache: bool=False):
 		''' Generate the material from the collected textures. '''
@@ -156,11 +165,13 @@ class CoreBackend():
 
 		print('Making VMT...')
 		vmt = core_make_vmt(material)
+		
+		isolatedName = self.name.rsplit('/', 1)[-1]
 
 		print('Writing files...')
-		with open(self.path / (self.name + '.vmt'), 'w') as vmtFile:
+		with open(self.path / (isolatedName + '.vmt'), 'w') as vmtFile:
 			vmtFile.write(vmt)
 
 		for texture in textures:
-			fullPath = self.path / (self.name + texture.name + '.vtf')
+			fullPath = self.path / (isolatedName + texture.name + '.vtf')
 			texture.image.save(fullPath, version=textureVersion)

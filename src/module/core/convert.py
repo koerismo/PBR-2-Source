@@ -42,16 +42,16 @@ def export(src: Material) -> list[Texture]:
 	basecolor = basecolor.convert('uint8')
 	textures.append(Texture(basecolor, '_albedo'))
 
+	bumpmap = texops.make_bumpmap(src)
+	bumpmap = bumpmap.convert('uint8')
+	textures.append(Texture(bumpmap, '_bump'))
+
 	if MaterialMode.is_pbr(src.mode):
 		mrao = texops.make_mrao(src)
 		mrao = mrao.convert('uint8')
 		textures.append(Texture(mrao, '_mrao'))
 		
 	else:
-		bumpmap = texops.make_bumpmap(src)
-		bumpmap = bumpmap.convert('uint8')
-		textures.append(Texture(bumpmap, '_bump'))
-
 		if MaterialMode.has_phong(src.mode):
 			phong_exp = texops.make_phong_exponent(src)
 			phong_exp = phong_exp.convert('uint8', clip=True)

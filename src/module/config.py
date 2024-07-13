@@ -5,8 +5,6 @@ from .version import __version__
 from traceback import format_exc
 import sys
 
-EMPTY_QUOTES = '""'
-
 '''
 # Config example:
 app-theme = 0 # 0/1/2
@@ -77,7 +75,7 @@ def save_config(conf: AppConfig):
 		toml = conf.getToml()
 		toml['app-theme'] = conf.appTheme
 		toml['reload-on-export'] = conf.reloadOnExport
-		toml['hijack-target'] = conf.hijackTarget or EMPTY_QUOTES
+		toml['hijack-target'] = conf.hijackTarget or ''
 		tomlkit.dump(toml, file)
 
 def make_config():
