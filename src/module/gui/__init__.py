@@ -10,6 +10,7 @@ from typing import Any
 from sys import argv, platform
 from traceback import format_exc
 import subprocess
+import os
 
 from pathlib import Path
 from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer
@@ -139,6 +140,10 @@ class PickableImage( QFrame ):
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
 		print('Icon updated!')
+		if self.path is not None:
+			self.iconButton.setToolTip(f'{os.path.basename(self.path)}  Right-click to remove')
+		else:
+			self.iconButton.setToolTip('')
 
 	def on_icon_click(self):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
