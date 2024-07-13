@@ -185,8 +185,6 @@ class MainWindow( QMainWindow ):
 		super().__init__(parent)
 
 		self.setWindowTitle( 'PBR-2-Source v'+__version__ )
-		self.setMinimumSize( 300, 450 )
-		self.resize(600, 450)
 
 		self.watcherCooldown = QTimer()
 		self.watcherCooldown.setSingleShot(True)
@@ -271,6 +269,7 @@ class MainWindow( QMainWindow ):
 			PickableImage('Ambient Occlusion', 'ao', False),
 			PickableImage('Emission', 'emit', False)
 		])
+		leftLayout.addStretch(1)
 
 		#endregion
 		''' ========================== RIGHT ========================== '''
@@ -380,6 +379,10 @@ class MainWindow( QMainWindow ):
 		footer.addWidget(self.exportButton)
 		
 		#endregion
+
+		# Configure minimum size based on size hint, just so it looks good always
+		self.setMinimumSize(self.sizeHint())
+		self.resize(600, 450)
 
 	@Slot()
 	def picked(self, kind: ImageRole, path: Path|None, set_icon):
