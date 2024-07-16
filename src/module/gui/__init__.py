@@ -138,7 +138,7 @@ class PickableImage( QFrame ):
 		else:
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
-		print(self.kind, 'Icon updated!')
+		print(self.kind.capitalize(), 'icon updated!')
 
 	def on_icon_click(self):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
