@@ -74,7 +74,7 @@ class Material:
 	ao: Image|None			# Linear f
 
 	normal: Image			# Linear RGBAf
-	normal_type: NormalType = NormalType.DX
+	normalType: NormalType = NormalType.DX
 
 	height: Image|None		# Linear f
 
@@ -91,7 +91,8 @@ class Material:
 			ao: Image|None,
 
 			normal: Image,
-			height: Image|None):
+			height: Image|None,
+			normalType: NormalType=NormalType.DX):
 
 		self.mode = mode
 		self.target = target
@@ -105,6 +106,7 @@ class Material:
 		self.ao = ao
 
 		self.normal = normal
+		self.normalType = normalType
 		self.height = height
 	
 	def swap_phong_envmap(self):

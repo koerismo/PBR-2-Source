@@ -8,7 +8,7 @@ from ..core import texops
 from ..core.convert import export as core_export
 from ..core.vmt import make_vmt as core_make_vmt
 from ..core.io.image import Image
-from ..core.material import Material, MaterialMode, GameTarget
+from ..core.material import Material, MaterialMode, GameTarget, NormalType
 from ..preset import Preset
 
 from pathlib import Path
@@ -46,6 +46,7 @@ class CoreBackend():
 	name: str = 'ThisShouldNeverAppear'
 	game: GameTarget = Preset.game
 	mode: MaterialMode = Preset.mode
+	normalType: NormalType = Preset.normalType
 
 	def __init__(self) -> None:
 		pass
@@ -58,6 +59,7 @@ class CoreBackend():
 	def save_preset(self, preset: Preset):
 		preset.game = self.game
 		preset.mode = self.mode
+		preset.normalType = self.normalType
 		preset.set_path(ImageRole.Albedo, self.albedoPath)
 		preset.set_path(ImageRole.Roughness, self.roughnessPath)
 		preset.set_path(ImageRole.Metallic, self.metallicPath)
@@ -151,7 +153,8 @@ class CoreBackend():
 			emit=texops.normalize(emit, albedo.size, mode='L') if emit else None,
 			ao=texops.normalize(ao, albedo.size, mode='L') if ao else None,
 			normal=texops.normalize(normal, mode='RGB'),
-			height=texops.normalize(height, normal.size, mode='L') if height else None
+			height=texops.normalize(height, normal.size, mode='L') if height else None,
+			normalType=self.normalType
 		)
 
 	def export(self, material: Material, callback: Callable[[str], None] | None = None):
@@ -160,25 +163,29 @@ class CoreBackend():
 		# TODO: This is kinda dumb
 		material.name = self.name
 
-		if callback is not None:
-			callback('Making VMT...')
+		if callback:
+			callback('Processing textures...')
 
 		textures = core_export(material)
 		textureVersion = GameTarget.vtf_version(material.target)
 
-		if callback is not None:
+		if callback:
 			callback('Making VMT...')
 
 		vmt = core_make_vmt(material)
 		
 		isolatedName = self.name.rsplit('/', 1)[-1]
+		vmtPath = self.path / (isolatedName + '.vmt')
 
-		if callback is not None:
+		if callback:
 			callback('Writing files...')
 
-		with open(self.path / (isolatedName + '.vmt'), 'w') as vmtFile:
+		with open(vmtPath, 'w') as vmtFile:
 			vmtFile.write(vmt)
 
 		for texture in textures:
 			fullPath = self.path / (isolatedName + texture.name + '.vtf')
 			texture.image.save(fullPath, version=textureVersion)
+
+		if callback:
+			callback(f'Finished exporting {isolatedName}.vmt!')

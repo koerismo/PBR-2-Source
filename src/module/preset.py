@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
-from .core.material import MaterialMode, GameTarget
+from .core.material import MaterialMode, GameTarget, NormalType
 
 class Preset():
 	paths: dict[str, Path] = {}
 	game: GameTarget = GameTarget.V2011
 	mode: MaterialMode = MaterialMode.PBRModel
+	normalType: NormalType = NormalType.DX
 
 	@staticmethod
 	def load(pathStr: str):
@@ -18,12 +19,16 @@ class Preset():
 			pathDict = rawDict['paths']
 
 			game: GameTarget
-			if isinstance(game := rawDict.get('game', 0), int):
+			if isinstance(game := rawDict.get('game', None), int):
 				preset.game = game
 			
 			mode: MaterialMode
-			if isinstance(mode := rawDict.get('mode', 0), int):
+			if isinstance(mode := rawDict.get('mode', None), int):
 				preset.mode = mode
+			
+			normalType: NormalType
+			if isinstance(normalType := rawDict.get('normalType', None), int):
+				preset.normalType = normalType
 
 			for key in pathDict:
 				value = pathDict[key]
@@ -64,5 +69,6 @@ class Preset():
 			json.dump({
 				'game': self.game,
 				'mode': self.mode,
+				'normalType': self.normalType,
 				'paths': outPaths
 			}, file, indent=4)

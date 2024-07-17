@@ -133,7 +133,7 @@ def make_bumpmap(mat: Material) -> Image:
 	if mat.mode < 2: return mat.normal
 
 	(r, g, b) = mat.normal.split()
-	if mat.normal_type == NormalType.GL: g.invert()
+	if mat.normalType == NormalType.GL: g.invert()
 
 	# Do we need to embed the envmap mask instead of phong mask?
 	if Material.swap_phong_envmap(mat):

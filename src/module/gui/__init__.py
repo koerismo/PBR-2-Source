@@ -1,6 +1,6 @@
 from ..version import __version__
 from ..config import AppConfig, AppTheme, load_config
-from ..core.material import GameTarget, MaterialMode
+from ..core.material import GameTarget, MaterialMode, NormalType
 from ..preset import Preset
 
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET, STYLESHEET_MIN
@@ -307,26 +307,18 @@ class MainWindow( QMainWindow ):
 			self.backend.mode = modeDropdown.itemData(x)
 		modeDropdown.currentIndexChanged.connect(on_changed_mode)
 
-		# rightLayout.addWidget(QLabel('Reflections'))
+		rightLayout.addWidget(QLabel('Bumpmap Type'))
 
-		# envmapDropdown = QDataComboBox()
-		# rightLayout.addWidget(envmapDropdown)
-		# for text,data in [
-		# 	('None', None),
-		# 	('Cubemap', 'env_cubemap'),
-		# 	('(P2) Black Wall 002a', 'metal/black_wall_envmap_002a'),
-		# 	('(CSGO) Generic Metal 01', 'environment maps/metal_generic_001'),
-		# 	('(CSGO) Generic Metal 02', 'environment maps/metal_generic_002'),
-		# 	('(CSGO) Generic Metal 03', 'environment maps/metal_generic_003'),
-		# 	('(CSGO) Generic Metal 04', 'environment maps/metal_generic_004'),
-		# 	('(CSGO) Generic Metal 05', 'environment maps/metal_generic_005'),
-		# 	('(CSGO) Generic Metal 06', 'environment maps/metal_generic_006')
-		# ]: envmapDropdown.addItem(text, data)
-		# envmapDropdown.setCurrentData(Preset.envmap)
+		self.normalTypeDropdown = normalTypeDropdown = QDataComboBox()
+		rightLayout.addWidget(normalTypeDropdown)
+		for text,data in [
+			('DirectX / 3DS Max', NormalType.DX),
+			('OpenGL / Maya', NormalType.GL)
+		]: normalTypeDropdown.addItem(text, data)
 
-		# def on_changed_envmap(x: int):
-		# 	self.backend.envmap = envmapDropdown.itemData(x)
-		# envmapDropdown.currentIndexChanged.connect(on_changed_envmap)
+		def on_changed_normalType(x: int):
+			self.backend.normalType = normalTypeDropdown.itemData(x)
+		normalTypeDropdown.currentIndexChanged.connect(on_changed_normalType)
 
 		# rightLayout.addWidget(QLabel('Material Hint'))
 
@@ -412,19 +404,20 @@ class MainWindow( QMainWindow ):
 			targetPath: str = self.target # type: ignore
 
 			def log_callback(msg: str):
-				print(msg)
+				print('Export:', msg)
 				self.progressBar.setFormat(msg)
+				QApplication.processEvents()
 
 			self.backend.pick_vmt(targetPath)
 			self.backend.export(material, log_callback)
 			self.progressBar.setValue(100)
-			self.progressBar.setFormat(f'Finished exporting {self.backend.path}{self.backend.name}.vmt!')
 
 			if self.config.hijackTarget:
 				subprocess.Popen([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
+			self.progressBar.setFormat('')
 
 			if isinstance(e, InterruptedError):
 				print('The export was cancelled by the user.')
@@ -500,6 +493,7 @@ class MainWindow( QMainWindow ):
 		preset = Preset.load(selected)
 		self.gameDropdown.setCurrentData(preset.game)
 		self.modeDropdown.setCurrentData(preset.mode)
+		self.normalTypeDropdown.setCurrentData(preset.normalType)
 		# self.hintDropdown.setCurrentData(preset.hint)
 		# self.envmapDropdown.setCurrentData(preset.envmap)
 		self.update_from_preset.emit(preset)

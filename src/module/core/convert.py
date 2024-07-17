@@ -23,7 +23,7 @@ def from_images(src: dict[str, Image], name: str, mode: MaterialMode, target: Ga
 
 	return Material(
 		mode,
-		GameTarget.V2011,
+		target,
 		normal.size,
 		name,
 		albedo=texops.normalize(albedo, mode='RGB'),
