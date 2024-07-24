@@ -78,6 +78,21 @@ class QtIOBackend(IOBackend):
 
 		vtf = VTF(width, height, (7, version), fmt=format, flags=flags)
 		vtf.get().copy_from(image.data.tobytes('C'), format)
+		
+		# Force 1x1 mipmap to generate
+		vtf.mipmap_count += 1
+		vtf.compute_mipmaps()
+		
+		# Use color for reflectivity
+		smallestMipmap = vtf.get(mipmap=vtf.mipmap_count)
+		smallestMipmap.load()
+		if smallestMipmap._data:
+			vtf.reflectivity.x += smallestMipmap._data[0] / 255
+			vtf.reflectivity.y += smallestMipmap._data[1] / 255
+			vtf.reflectivity.z += smallestMipmap._data[2] / 255
+
+		# Exclude 1x1 mipmap in the exported image
+		vtf.mipmap_count -= 1
 
 		with open(path, 'wb') as file:
 			vtf.save(file)

@@ -82,6 +82,23 @@ class VtfFormat(imcore.format.Format):
 
 			self.vtf = vtf.VTF(width, height, (7, self.version), fmt=format, flags=flags)
 			self.vtf.get().copy_from(im.tobytes('C'), format)
+			
+			# Force 1x1 mipmap to generate
+			self.vtf.mipmap_count += 1
+			self.vtf.compute_mipmaps()
+			
+			# Use color for reflectivity
+			smallestMipmap = self.vtf.get(mipmap=self.vtf.mipmap_count)
+			smallestMipmap.load()
+			if smallestMipmap._data:
+				self.vtf.reflectivity.x += smallestMipmap._data[0] / 255
+				self.vtf.reflectivity.y += smallestMipmap._data[1] / 255
+				self.vtf.reflectivity.z += smallestMipmap._data[2] / 255
+
+			# Exclude 1x1 mipmap in the exported image
+			self.vtf.mipmap_count -= 1
+
+			# Save
 			self.vtf.save(self.file)
 
 	class Reader(imcore.format.Format.Reader):
