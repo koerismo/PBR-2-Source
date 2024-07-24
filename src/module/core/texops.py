@@ -81,6 +81,11 @@ def make_envmask(mat: Material) -> Image:
 
 	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
 	mask2 = mat.roughness.copy().invert().pow(5)
+	if mat.ao: mask2.mult(mat.ao)
+
+	# Multiply to account for lack of reflectivity on brushes
+	if not MaterialMode.has_phong(mat.mode):
+		mask2.mult(2.0)
 
 	return mask1.mult(mask2)
 
