@@ -59,6 +59,7 @@ class QtIOBackend(IOBackend):
 			raise NotImplementedError(f'Failed to save {path.name} . Use imageio backend for non-vtf output!')
 
 		format = None
+		max_value = 255
 		flags = VTFFlags.EMPTY
 		match (bands, image.data.dtype):
 			case (1, 'uint8'): format = ImageFormats.I8
@@ -69,9 +70,11 @@ class QtIOBackend(IOBackend):
 			case (4, 'uint16'):
 				format = ImageFormats.RGBA16161616
 				flags |= VTFFlags.EIGHTBITALPHA
+				max_value = 0xffff
 			case (4, 'float16'):
 				format = ImageFormats.RGBA16161616F
 				flags |= VTFFlags.EIGHTBITALPHA
+				max_value = 1.0
 
 		if format is None:
 			raise TypeError(f"Could not match format {image.data.dtype}x{bands}!")
@@ -79,20 +82,18 @@ class QtIOBackend(IOBackend):
 		vtf = VTF(width, height, (7, version), fmt=format, flags=flags)
 		vtf.get().copy_from(image.data.tobytes('C'), format)
 		
-		# Force 1x1 mipmap to generate
-		vtf.mipmap_count += 1
-		vtf.compute_mipmaps()
-		
 		# Use color for reflectivity
-		smallestMipmap = vtf.get(mipmap=vtf.mipmap_count)
-		smallestMipmap.load()
-		if smallestMipmap._data:
-			vtf.reflectivity.x += smallestMipmap._data[0] / 255
-			vtf.reflectivity.y += smallestMipmap._data[1] / 255
-			vtf.reflectivity.z += smallestMipmap._data[2] / 255
+		average = image.average()
+		if bands >= 3:
+			vtf.reflectivity.x = average[0] / max_value
+			vtf.reflectivity.y = average[1] / max_value
+			vtf.reflectivity.z = average[2] / max_value
+		else:
+			amount = average[0] / max_value
+			vtf.reflectivity.x = amount
+			vtf.reflectivity.y = amount
+			vtf.reflectivity.z = amount
 
-		# Exclude 1x1 mipmap in the exported image
-		vtf.mipmap_count -= 1
 
 		with open(path, 'wb') as file:
 			vtf.save(file)

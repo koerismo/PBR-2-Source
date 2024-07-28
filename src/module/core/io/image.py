@@ -120,6 +120,9 @@ class Image():
 		gray = r.mult(0.2126).add(g.mult(0.7152)).add(b.mult(0.0722))
 		return gray
 
+	def average(self):
+		return np.average(self.data, (0, 1))
+
 	def get_channel(self, channel: int) -> int:
 		if channel >= self.channels: raise ValueError(f'Attempted to get channel {channel+1} of {self.channels}-channel image!')
 		return self.data.swapaxes(0, 2)[channel]

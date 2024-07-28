@@ -64,6 +64,7 @@ class VtfFormat(imcore.format.Format):
 
 			format = None
 			flags = vtf.VTFFlags.EMPTY
+			max_value = 255
 			match (bands, im.dtype):
 				case (1, 'uint8'): format = ImageFormats.I8
 				case (3, 'uint8'): format = ImageFormats.RGB888
@@ -73,9 +74,11 @@ class VtfFormat(imcore.format.Format):
 				case (4, 'uint16'):
 					format = ImageFormats.RGBA16161616
 					flags |= vtf.VTFFlags.EIGHTBITALPHA
+					max_value = 0xffff
 				case (4, 'float16'):
 					format = ImageFormats.RGBA16161616F
 					flags |= vtf.VTFFlags.EIGHTBITALPHA
+					max_value = 1.0
 
 			if format is None:
 				raise TypeError(f"Could not match format {im.dtype}x{bands}!")
@@ -83,20 +86,17 @@ class VtfFormat(imcore.format.Format):
 			self.vtf = vtf.VTF(width, height, (7, self.version), fmt=format, flags=flags)
 			self.vtf.get().copy_from(im.tobytes('C'), format)
 			
-			# Force 1x1 mipmap to generate
-			self.vtf.mipmap_count += 1
-			self.vtf.compute_mipmaps()
-			
 			# Use color for reflectivity
-			smallestMipmap = self.vtf.get(mipmap=self.vtf.mipmap_count)
-			smallestMipmap.load()
-			if smallestMipmap._data:
-				self.vtf.reflectivity.x += smallestMipmap._data[0] / 255
-				self.vtf.reflectivity.y += smallestMipmap._data[1] / 255
-				self.vtf.reflectivity.z += smallestMipmap._data[2] / 255
-
-			# Exclude 1x1 mipmap in the exported image
-			self.vtf.mipmap_count -= 1
+			average = np.average(im, (0, 1))
+			if bands >= 3:
+				self.vtf.reflectivity.x = average[0] / max_value
+				self.vtf.reflectivity.y = average[1] / max_value
+				self.vtf.reflectivity.z = average[2] / max_value
+			else:
+				amount = average[0] / max_value
+				self.vtf.reflectivity.x = amount
+				self.vtf.reflectivity.y = amount
+				self.vtf.reflectivity.z = amount
 
 			# Save
 			self.vtf.save(self.file)
