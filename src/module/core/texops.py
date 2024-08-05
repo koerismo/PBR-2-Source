@@ -118,13 +118,6 @@ def make_basecolor(mat: Material) -> Image:
 			envmask = make_envmask(mat)
 			basetexture = Image.merge((r, g, b, envmask))
 
-	# Emission as basetexture alpha
-	# TODO: Burn emission color into image when using VLG/LMG
-	if MaterialMode.embed_selfillum(mat.mode):
-		assert mat.emit != None, 'An emissive texture is required for this mode!'
-		emitmask = mat.emit.copy().grayscale()
-		basetexture = Image.merge((r, g, b, emitmask))
-
 	return basetexture
 
 

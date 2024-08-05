@@ -48,6 +48,10 @@ def export(src: Material) -> list[Texture]:
 	bumpmap = bumpmap.convert('uint8', clip=True)
 	textures.append(Texture(bumpmap, '_bump', compressed=False))
 
+	if (MaterialMode.has_selfillum(src.mode) or MaterialMode.is_pbr(src.mode)) and src.emit:
+			illum_mask = src.emit.convert('uint8', clip=True)
+			textures.append(Texture(illum_mask, '_emit'))
+
 	if MaterialMode.is_pbr(src.mode):
 		mrao = texops.make_mrao(src)
 		mrao = mrao.convert('uint8')
