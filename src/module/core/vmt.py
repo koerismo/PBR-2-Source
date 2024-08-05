@@ -99,11 +99,8 @@ def make_vmt(mat: Material) -> str:
 
 		if MaterialMode.has_selfillum(mat.mode):
 			write(	'',
-				'	$selfillum		1')
-			
-			# Mask is always embedded in basetexture alpha, so we don't need this.
-			# write(
-			# 	f'	$selfillummask	"{mat.name}_emit"' )
+				'	$selfillum		1',
+				f'	$selfillummask	"{mat.name}_emit"')
 
 	write('}')
 	return '\n'.join(vmt)
