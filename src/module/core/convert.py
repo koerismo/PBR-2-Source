@@ -39,11 +39,11 @@ def export(src: Material) -> list[Texture]:
 
 	textures = []
 	basecolor = texops.make_basecolor(src)
-	basecolor = basecolor.convert('uint8')
+	basecolor = basecolor.convert('uint8', clip=True)
 	textures.append(Texture(basecolor, '_albedo'))
 
 	bumpmap = texops.make_bumpmap(src)
-	bumpmap = bumpmap.convert('uint8')
+	bumpmap = bumpmap.convert('uint8', clip=True)
 	textures.append(Texture(bumpmap, '_bump'))
 
 	if MaterialMode.is_pbr(src.mode):
@@ -59,7 +59,7 @@ def export(src: Material) -> list[Texture]:
 
 		if not MaterialMode.embed_envmap(src.mode):
 			envmap_mask = texops.make_envmask(src)
-			envmap_mask = envmap_mask.convert('uint8')
+			envmap_mask = envmap_mask.convert('uint8', clip=True)
 			textures.append(Texture(envmap_mask, '_envmap'))
 
 	return textures
