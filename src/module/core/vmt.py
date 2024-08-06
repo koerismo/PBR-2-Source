@@ -98,9 +98,15 @@ def make_vmt(mat: Material) -> str:
 				'	$phongfresnelranges			"[0.1 0.8 1.0]"' )
 
 		if MaterialMode.has_selfillum(mat.mode):
-			write(	'',
-				'	$selfillum		1',
-				f'	$selfillummask	"{mat.name}_emit"')
+			if MaterialMode.is_vlg(mat.mode):
+				write(	'',
+					f'	$detail				"{mat.name}_emit"'
+					'	$detailscale		1',
+					'	$detailblendmode	5')
+			else:
+				write(	'',
+					'	$selfillum		1',
+					f'	$selfillummask	"{mat.name}_emit"')
 
 	write('}')
 	return '\n'.join(vmt)
