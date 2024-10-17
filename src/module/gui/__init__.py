@@ -540,6 +540,7 @@ class MainWindow( QMainWindow ):
 
 def start_gui():
 	app: QApplication = QApplication()
+	app.setApplicationVersion(__version__)	
 	app_config = load_config()
 
 	if '--style-fusion' in argv: app_config.appTheme = AppTheme.Fusion
@@ -554,21 +555,14 @@ def start_gui():
 			app.setStyle( 'Fusion' )
 			app.setStyleSheet( STYLESHEET_MIN )
 
-	# try:
 	dt = datetime.now()
 	with open(get_internal_path('res/icon.icns'), 'rb') as file:
-		app_icon_file = ICNS.get_icon(file.read(), size=256, variant=(None if dt.month // 2 != 6 else b'stpr'))
+		app_icon_file = ICNS.get_icon(file.read(), size=256, variant=(None if dt.month // 2 != 3 else b'stpr'))
 		assert app_icon_file != None, 'Failed to read icon!'
 
 	app_icon = QPixmap()
 	app_icon.loadFromData(app_icon_file)
 	app.setWindowIcon(app_icon)
-	# except Exception as e:
-	# 	print(e)
-	# 	pass
-
-	app.setApplicationDisplayName('PBR-2-Source')
-	app.setApplicationVersion(__version__)
 
 	win = MainWindow( app_config )
 	win.show()

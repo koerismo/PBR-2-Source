@@ -50,11 +50,10 @@ class ICNS:
 
 		if variant == None:
 			subicon = cls.get_chunk(data, ident)
-			assert subicon, 'Failed to read icon chunk!'
 			return subicon
 
 		subfile = cls.get_chunk(data, variant)
-		assert subfile, 'Failed to read icon chunk!'
+		if subfile is None: return None
 		return cls.get_chunk(subfile, ident)
 
 
