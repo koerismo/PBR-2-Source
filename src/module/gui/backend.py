@@ -185,7 +185,7 @@ class CoreBackend():
 
 		for texture in textures:
 			fullPath = self.path / (isolatedName + texture.name + '.vtf')
-			texture.image.save(fullPath, version=textureVersion)
+			texture.image.save(fullPath, version=textureVersion, compressed=texture.compressed)
 
 		if callback:
 			callback(f'Finished exporting {isolatedName}.vmt!')

@@ -44,7 +44,7 @@ def export(src: Material) -> list[Texture]:
 
 	bumpmap = texops.make_bumpmap(src)
 	bumpmap = bumpmap.convert('uint8', clip=True)
-	textures.append(Texture(bumpmap, '_bump'))
+	textures.append(Texture(bumpmap, '_bump', compressed=False))
 
 	if MaterialMode.is_pbr(src.mode):
 		mrao = texops.make_mrao(src)

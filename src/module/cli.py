@@ -177,7 +177,7 @@ material_mode = Material.MaterialMode.PhongEnvmap
 if args.lmg: material_mode = Material.MaterialMode.Envmap
 
 mat = Convert.from_images(files, material_path, material_mode, Material.GameTarget.V2023)
-mat.normal_type = mat_mode['__normal__']
+mat.normalType = mat_mode['__normal__']
 images = Convert.export(mat)
 vtf_version = Material.GameTarget.vtf_version(mat.target)
 

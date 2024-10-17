@@ -21,9 +21,9 @@ class ImIOBackend(IOBackend):
 		return Image(src)
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=5) -> None:
+	def save(image: Image, path: str | Path, version: int=5, compressed: bool=True) -> None:
 		try:
-			imageio.imwrite(path if isinstance(path, Path) else Path(path), image.data, version=version)
+			imageio.imwrite(path if isinstance(path, Path) else Path(path), image.data, version=version, compressed=compressed)
 		except TypeError as e:
 			# Wrap the error message, since the default one is totally useless.
 			_, _, ext = str(path).rpartition('.')
@@ -47,11 +47,13 @@ class VtfFormat(imcore.format.Format):
 
 	class Writer(imcore.format.Format.Writer):
 		version: int
+		compressed: bool
 
 		def _open(self, **kwargs) -> None:
 			self.file = self.request.get_file()
 			self.vtf = None
 			self.version = kwargs.get('version', 5)
+			self.compressed = kwargs.get('compressed', True)
 
 		def _close(self) -> None:
 			pass
@@ -63,12 +65,19 @@ class VtfFormat(imcore.format.Format):
 			height, width, bands = im.shape
 
 			format = None
+			target_format = None
+
+
 			flags = vtf.VTFFlags.EMPTY
 			max_value = 255
 			match (bands, im.dtype):
-				case (1, 'uint8'): format = ImageFormats.I8
-				case (3, 'uint8'): format = ImageFormats.RGB888
+				case (1, 'uint8'):
+					format = ImageFormats.I8
+				case (3, 'uint8'):
+					if self.compressed:	target_format = ImageFormats.DXT1
+					format = ImageFormats.RGB888
 				case (4, 'uint8'):
+					if self.compressed:	target_format = ImageFormats.DXT5
 					format = ImageFormats.RGBA8888
 					flags |= vtf.VTFFlags.EIGHTBITALPHA
 				case (4, 'uint16'):
@@ -82,8 +91,11 @@ class VtfFormat(imcore.format.Format):
 
 			if format is None:
 				raise TypeError(f"Could not match format {im.dtype}x{bands}!")
+			
+			if target_format is None:
+				target_format = format
 
-			self.vtf = vtf.VTF(width, height, (7, self.version), fmt=format, flags=flags)
+			self.vtf = vtf.VTF(width, height, (7, self.version), fmt=target_format, flags=flags)
 			self.vtf.get().copy_from(im.tobytes('C'), format)
 			
 			# Use color for reflectivity

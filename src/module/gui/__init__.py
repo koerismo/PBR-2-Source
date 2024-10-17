@@ -1,6 +1,7 @@
 from ..version import __version__
 from ..config import AppConfig, AppTheme, load_config
 from ..core.material import GameTarget, MaterialMode, NormalType
+from ..core.io.icns import ICNS
 from ..preset import Preset
 
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET, STYLESHEET_MIN
@@ -10,6 +11,8 @@ from typing import Any
 from sys import argv, platform
 from traceback import format_exc
 import subprocess
+import sys
+from datetime import datetime
 
 from pathlib import Path
 from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer
@@ -24,6 +27,13 @@ from PySide6.QtWidgets import (
 from urllib.parse import unquote_plus, urlparse
 def uri_to_path(uri: str) -> str:
 	return unquote_plus(urlparse(uri).path)
+
+def get_internal_path(filename: str) -> Path:
+	root_path: str
+	if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+		root_path = getattr(sys, '_MEIPASS')
+	else: root_path = '.'
+	return Path(root_path) / filename
 
 class QDataComboBox( QComboBox ):
 	def setCurrentData(self, data: Any):
@@ -180,7 +190,7 @@ class MainWindow( QMainWindow ):
 		#region init
 		super().__init__(parent)
 
-		self.setWindowTitle( 'PBR-2-Source v'+__version__ )
+		self.setWindowTitle('PBR-2-Source v'+__version__)
 
 		self.watcherCooldown = QTimer()
 		self.watcherCooldown.setSingleShot(True)
@@ -524,6 +534,22 @@ def start_gui():
 		case AppTheme.Fusion:
 			app.setStyle( 'Fusion' )
 			app.setStyleSheet( STYLESHEET_MIN )
+
+	# try:
+	dt = datetime.now()
+	with open(get_internal_path('res/icon.icns'), 'rb') as file:
+		app_icon_file = ICNS.get_icon(file.read(), size=256, variant=(None if dt.month // 2 != 6 else b'stpr'))
+		assert app_icon_file != None, 'Failed to read icon!'
+
+	app_icon = QPixmap()
+	app_icon.loadFromData(app_icon_file)
+	app.setWindowIcon(app_icon)
+	# except Exception as e:
+	# 	print(e)
+	# 	pass
+
+	app.setApplicationDisplayName('PBR-2-Source')
+	app.setApplicationVersion(__version__)
 
 	win = MainWindow( app_config )
 	win.show()

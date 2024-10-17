@@ -51,7 +51,7 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=4) -> None:
+	def save(image: Image, path: str | Path, version: int=4, compressed: bool=True) -> None:
 		height, width, bands = image.data.shape
 
 		path = Path(path)
@@ -59,12 +59,18 @@ class QtIOBackend(IOBackend):
 			raise NotImplementedError(f'Failed to save {path.name} . Use imageio backend for non-vtf output!')
 
 		format = None
+		target_format = None
+
 		max_value = 255
 		flags = VTFFlags.EMPTY
 		match (bands, image.data.dtype):
-			case (1, 'uint8'): format = ImageFormats.I8
-			case (3, 'uint8'): format = ImageFormats.RGB888
+			case (1, 'uint8'):
+				format = ImageFormats.I8
+			case (3, 'uint8'):
+				if compressed:	target_format = ImageFormats.DXT1
+				format = ImageFormats.RGB888
 			case (4, 'uint8'):
+				if compressed:	target_format = ImageFormats.DXT5
 				format = ImageFormats.RGBA8888
 				flags |= VTFFlags.EIGHTBITALPHA
 			case (4, 'uint16'):
@@ -79,7 +85,10 @@ class QtIOBackend(IOBackend):
 		if format is None:
 			raise TypeError(f"Could not match format {image.data.dtype}x{bands}!")
 
-		vtf = VTF(width, height, (7, version), fmt=format, flags=flags)
+		if target_format is None:
+			target_format = format
+
+		vtf = VTF(width, height, (7, version), fmt=target_format, flags=flags)
 		vtf.get().copy_from(image.data.tobytes('C'), format)
 		
 		# Use color for reflectivity

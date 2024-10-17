@@ -116,7 +116,9 @@ class Material:
 class Texture():
 	image: Image
 	name: str
+	compressed: bool
 
-	def __init__(self, image: Image, name: str) -> None:
+	def __init__(self, image: Image, name: str, compressed: bool=True) -> None:
 		self.image = image
 		self.name = name
+		self.compressed = compressed

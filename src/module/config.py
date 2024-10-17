@@ -47,7 +47,7 @@ def load_config(gui=True) -> AppConfig:
 			rawConf = tomlkit.load(file)
 			parsed.setToml(rawConf)
 
-			rawAppTheme: AppTheme = rawConf.get('app-theme', 0)
+			rawAppTheme: AppTheme = rawConf.get('app-theme', AppTheme.Default)
 			if not isinstance(rawAppTheme, int): rawAppTheme = AppTheme.Default
 			parsed.appTheme = rawAppTheme
 
