@@ -4,10 +4,11 @@ from enum import IntEnum
 class MaterialMode(IntEnum):
 	PBRModel			= 0		# PBR: PBR model mode
 	PBRBrush			= 1		# PBR: PBR brush mode
-	PhongEnvmap			= 10	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses basetexture alpha
+	Phong				= 10	# VertexLitGeneric: Phong mask is in normal map alpha
+	PhongEnvmap			= 11	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses basetexture alpha
 								# GMOD: phong mask uses basetexture alpha, envmap mask uses normal map alpha
-	PhongEnvmapAlpha	= 11	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses its own mask
-	PhongEnvmapEmit		= 12	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses its own mask, emission uses basetexture alpha
+	PhongEnvmapAlpha	= 12	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses its own mask
+	PhongEnvmapEmit		= 13	# VertexLitGeneric: Phong mask is in normal map alpha, envmap uses its own mask, emission uses basetexture alpha
 	Envmap				= 20	# LightmappedGeneric: Envmap uses basetexture alpha
 	EnvmapAlpha			= 21	# LightmappedGeneric: Envmap uses its own mask
 	EnvmapEmit			= 22	# LightmappedGeneric: Envmap uses ist own mask, emission uses basetexture alpha
@@ -16,24 +17,27 @@ class MaterialMode(IntEnum):
 	def is_pbr(mat: 'MaterialMode'): return mat <= 1
 
 	@staticmethod
-	def is_model(mat: 'MaterialMode'): return mat == 0 or (mat >= 10 and mat <= 12)
+	def is_model(mat: 'MaterialMode'): return mat == 0 or (mat >= 10 and mat <= 13)
 
 	@staticmethod
-	def has_phong(mat: 'MaterialMode'): return mat >= 10 and mat <= 12
+	def has_phong(mat: 'MaterialMode'): return mat >= 10 and mat <= 13
 
 	@staticmethod
-	def is_vlg(mat: 'MaterialMode'): return mat >= 10 and mat <= 12
+	def has_envmap(mat: 'MaterialMode'): return mat >= 11 and mat <= 13
 
 	@staticmethod
-	def has_alpha(mat: 'MaterialMode'): return mat == 11 or mat == 21
+	def is_vlg(mat: 'MaterialMode'): return mat >= 10 and mat <= 13
 
 	@staticmethod
-	def has_selfillum(mat: 'MaterialMode'): return mat == 12 or mat == 22
+	def has_alpha(mat: 'MaterialMode'): return mat == 12 or mat == 21
+
+	@staticmethod
+	def has_selfillum(mat: 'MaterialMode'): return mat == 13 or mat == 22
 
 	@staticmethod
 	def get_shader(mat: 'MaterialMode'):
 		if mat <= 1:  return 'PBR'
-		if mat <= 12: return 'VertexLitGeneric'
+		if mat <= 13: return 'VertexLitGeneric'
 		return 'LightmappedGeneric'
 
 	@staticmethod

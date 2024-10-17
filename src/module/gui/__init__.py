@@ -303,6 +303,7 @@ class MainWindow( QMainWindow ):
 		rightLayout.addWidget(modeDropdown)
 		for text,data in [
 			('Model: PBR', MaterialMode.PBRModel),
+			('Model: Phong', MaterialMode.Phong),
 			('Model: Phong+Envmap', MaterialMode.PhongEnvmap),
 			('Model: Phong+Envmap+Alpha', MaterialMode.PhongEnvmapAlpha),
 			('Model: Phong+Envmap+Emission', MaterialMode.PhongEnvmapEmit),

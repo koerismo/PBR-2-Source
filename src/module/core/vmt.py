@@ -38,68 +38,88 @@ def make_vmt(mat: Material) -> str:
 		l = len(vmt)
 		vmt[l:l+len(args)] = args
 
-	write(		f'{shader}\n{{',
-				f'	$basetexture		"{mat.name}_albedo"',
-				f'	$bumpmap			"{mat.name}_bump"' )
+	write(			f'{shader}\n{{',
+					f'	$basetexture		"{mat.name}_albedo"',
+					f'	$bumpmap			"{mat.name}_bump"' )
 
 	if MaterialMode.has_alpha(mat.mode):
-		write(	'	$translucent	1')
+		write(		'	$translucent	1')
 
 	if pbr:
 		write(
-				'',
-				f'	$mraotexture		"{mat.name}_mrao"',
-				f'	$model				{int(MaterialMode.is_model(mat.mode))}' )
+					'',
+					f'	$mraotexture		"{mat.name}_mrao"',
+					f'	$model				{int(MaterialMode.is_model(mat.mode))}' )
 		
 		if mat.emit:
 			write(
-				f'	$emissiontexture	"{mat.name}_emit"')
+					f'	$emissiontexture	"{mat.name}_emit"')
 		if mat.height:
 			write(
-				'',
-				'	$parallax			1',
-				'	$parallaxdepth		0.04',
-				'	$parallaxcenter		0.5')
+					'',
+					'	$parallax			1',
+					'	$parallaxdepth		0.04',
+					'	$parallaxcenter		0.5')
 
 	else:
 		envmaptint = game_envmaptint(mat.target, MaterialMode.is_vlg(mat.mode))
 		lightscale = game_lightscale(mat.target)
 
-		write(
-				'',
-				f'	$envmap						"env_cubemap"',
-				f'	$envmaptint					"[{envmaptint} {envmaptint} {envmaptint}]"',
-				'	$envmapcontrast				1.0' )
+		# Do we use envmaps?
+		if MaterialMode.has_envmap(mat.mode):
+			write(
+					'',
+					f'	$envmap						"env_cubemap"',
+					f'	$envmaptint					"[{envmaptint} {envmaptint} {envmaptint}]"',
+					'	$envmapcontrast				1.0' )
 
 
-		if MaterialMode.embed_envmap(mat.mode):
-			if Material.swap_phong_envmap(mat):
-				write(
-				'	$normalmapalphaenvmapmask	1',
-				'	$basemapalphaphongmask		1')
+			# Packed envmap
+			if MaterialMode.embed_envmap(mat.mode):
+				if Material.swap_phong_envmap(mat):
+					write(
+					'	$normalmapalphaenvmapmask	1',
+					'	$basemapalphaphongmask		1')
+				else:
+					write(
+					'	$basetextureenvmapmask		1')
+			# Unpacked envmap
 			else:
 				write(
-				'	$basetextureenvmapmask		1')
-		else:
-			write(
-				f'	$envmapmask					"{mat.name}_envmap"')
+					f'	$envmapmask					"{mat.name}_envmap"')
+				
+				# Enable fresnel for envmap always
+				if MaterialMode.is_vlg(mat.mode): write(
+					f'	$envmapfresnel				1')
+				else: write(
+					f'	$fresnelreflection			0')
 
 
+		# Does the game support lightscale?
 		if lightscale:
 			write(
-				f'	$envmaplightscale			{lightscale}' )
+					f'	$envmaplightscale			{lightscale}' )
 
+
+		# Phong base
 		if MaterialMode.has_phong(mat.mode):
 			write(
-				'',
-				'	$phong 1',
-				f'	$phongexponenttexture		"{mat.name}_phongexp"',
-				'	$phongboost					5.0',
-				'	$phongfresnelranges			"[0.1 0.8 1.0]"' )
+					'',
+					'	$phong 1',
+					f'	$phongexponenttexture		"{mat.name}_phongexp"',
+					'	$phongboost					5.0')
+		
+		# Are envmap or phong using the fresnel ranges?
+		if MaterialMode.has_phong(mat.mode) or MaterialMode.has_envmap(mat.mode):
+			write(
+					'	$phongfresnelranges			"[0.1 0.8 1.0]"')
 
+
+		# Do we need to handle self-illumination?
 		if MaterialMode.has_selfillum(mat.mode):
 			if MaterialMode.is_vlg(mat.mode):
-				write(	'',
+				write(
+					'',
 					f'	$detail				"{mat.name}_emit"'
 					'	$detailscale		1',
 					'	$detailblendmode	5')

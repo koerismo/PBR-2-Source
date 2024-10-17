@@ -63,7 +63,7 @@ def export(src: Material) -> list[Texture]:
 			phong_exp = phong_exp.convert('uint8', clip=True)
 			textures.append(Texture(phong_exp, '_phongexp'))
 
-		if not MaterialMode.embed_envmap(src.mode):
+		if MaterialMode.has_envmap(src.mode) and not MaterialMode.embed_envmap(src.mode):
 			envmap_mask = texops.make_envmask(src)
 			envmap_mask = envmap_mask.convert('uint8', clip=True)
 			textures.append(Texture(envmap_mask, '_envmap'))
