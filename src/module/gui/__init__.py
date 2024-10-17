@@ -330,6 +330,24 @@ class MainWindow( QMainWindow ):
 			self.backend.normalType = normalTypeDropdown.itemData(x)
 		normalTypeDropdown.currentIndexChanged.connect(on_changed_normalType)
 
+		rightLayout.addWidget(QLabel('Target Scale'))
+		self.scaleTargetDropdown = scaleTargetDropdown = QDataComboBox()
+		rightLayout.addWidget(scaleTargetDropdown)
+		for text,data in [
+			('None', 0),
+			('2048x', 2048),
+			('1024x', 1024),
+			('512x', 512),
+			('256x', 256),
+			('128x', 128),
+			('64x', 64),
+		]: scaleTargetDropdown.addItem(text, data)
+
+		def on_changed_scaleTarget(x: int):
+			self.backend.scaleTarget = scaleTargetDropdown.itemData(x)
+		scaleTargetDropdown.currentIndexChanged.connect(on_changed_scaleTarget)
+
+
 		# rightLayout.addWidget(QLabel('Material Hint'))
 
 		# self.hintDropdown = hintDropdown = QComboBox()
@@ -504,6 +522,7 @@ class MainWindow( QMainWindow ):
 		self.gameDropdown.setCurrentData(preset.game)
 		self.modeDropdown.setCurrentData(preset.mode)
 		self.normalTypeDropdown.setCurrentData(preset.normalType)
+		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
 		# self.hintDropdown.setCurrentData(preset.hint)
 		# self.envmapDropdown.setCurrentData(preset.envmap)
 		self.update_from_preset.emit(preset)

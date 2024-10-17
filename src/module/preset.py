@@ -7,6 +7,7 @@ class Preset():
 	game: GameTarget = GameTarget.V2011
 	mode: MaterialMode = MaterialMode.PBRModel
 	normalType: NormalType = NormalType.DX
+	scaleTarget: int = 0
 
 	@staticmethod
 	def load(pathStr: str):
@@ -29,6 +30,10 @@ class Preset():
 			normalType: NormalType
 			if isinstance(normalType := rawDict.get('normalType', None), int):
 				preset.normalType = normalType
+			
+			scaleTarget: int
+			if isinstance(scaleTarget := rawDict.get('scaleTarget', None), int):
+				preset.scaleTarget = scaleTarget
 
 			for key in pathDict:
 				value = pathDict[key]
@@ -70,5 +75,6 @@ class Preset():
 				'game': self.game,
 				'mode': self.mode,
 				'normalType': self.normalType,
+				'scaleTarget': self.scaleTarget,
 				'paths': outPaths
 			}, file, indent=4)

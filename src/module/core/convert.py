@@ -24,6 +24,7 @@ def from_images(src: dict[str, Image], name: str, mode: MaterialMode, target: Ga
 	return Material(
 		mode,
 		target,
+		albedo.size,
 		normal.size,
 		name,
 		albedo=texops.normalize(albedo, mode='RGB'),
@@ -39,6 +40,7 @@ def export(src: Material) -> list[Texture]:
 
 	textures = []
 	basecolor = texops.make_basecolor(src)
+	basecolor = basecolor.resize(src.size)
 	basecolor = basecolor.convert('uint8', clip=True)
 	textures.append(Texture(basecolor, '_albedo'))
 

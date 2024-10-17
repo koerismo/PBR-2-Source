@@ -47,6 +47,7 @@ class CoreBackend():
 	game: GameTarget = Preset.game
 	mode: MaterialMode = Preset.mode
 	normalType: NormalType = Preset.normalType
+	scaleTarget: int = Preset.scaleTarget
 
 	def __init__(self) -> None:
 		pass
@@ -60,6 +61,7 @@ class CoreBackend():
 		preset.game = self.game
 		preset.mode = self.mode
 		preset.normalType = self.normalType
+		preset.scaleTarget = self.scaleTarget
 		preset.set_path(ImageRole.Albedo, self.albedoPath)
 		preset.set_path(ImageRole.Roughness, self.roughnessPath)
 		preset.set_path(ImageRole.Metallic, self.metallicPath)
@@ -140,20 +142,25 @@ class CoreBackend():
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
 		height = getImage(ImageRole.Height) or Image.blank(normal.size, (0.5,))
 
+		texSize = (self.scaleTarget, self.scaleTarget) if (self.scaleTarget and self.scaleTarget <= albedo.size[0]) else albedo.size
+		detailSize = (texSize[0]*2, texSize[1]*2) if (self.scaleTarget and texSize[0]*2 <= normal.size[0]) else normal.size
+		print('Determined size', texSize, 'for albedo and', detailSize, 'for details via scale target', self.scaleTarget)
+
 		print('Constructing material...')
 
 		return Material(
 			self.mode,
 			self.game,
-			normal.size,
+			texSize,
+			detailSize,
 			self.name,
-			albedo=texops.normalize(albedo, mode='RGB'),
-			roughness=texops.normalize(roughness, normal.size, mode='L'),
-			metallic=texops.normalize(metallic, normal.size, mode='L'),
-			emit=texops.normalize(emit, albedo.size, mode='L') if emit else None,
-			ao=texops.normalize(ao, albedo.size, mode='L') if ao else None,
-			normal=texops.normalize(normal, mode='RGB'),
-			height=texops.normalize(height, normal.size, mode='L') if height else None,
+			albedo=texops.normalize(albedo, detailSize, mode='RGB'),
+			roughness=texops.normalize(roughness, detailSize, mode='L'),
+			metallic=texops.normalize(metallic, detailSize, mode='L'),
+			emit=texops.normalize(emit, detailSize, mode='L') if emit else None,
+			ao=texops.normalize(ao, detailSize, mode='L') if ao else None,
+			normal=texops.normalize(normal, detailSize, mode='RGB'),
+			height=texops.normalize(height, detailSize, mode='L') if height else None,
 			normalType=self.normalType
 		)
 
