@@ -30,7 +30,7 @@ def from_images(src: dict[str, Image], name: str, mode: MaterialMode, target: Ga
 		albedo=texops.normalize(albedo, mode='RGB'),
 		roughness=texops.normalize(roughness, normal.size, mode='L'),
 		metallic=texops.normalize(metallic, normal.size, mode='L'),
-		emit=texops.normalize(emit, albedo.size, mode='L') if emit else None,
+		emit=texops.normalize(emit, albedo.size, noAlpha=True) if emit else None,
 		ao=texops.normalize(ao, albedo.size, mode='L') if ao else None,
 		normal=texops.normalize(normal, mode='RGB'),
 		height=texops.normalize(height, normal.size, mode='L') if height else None
@@ -49,7 +49,8 @@ def export(src: Material) -> list[Texture]:
 	textures.append(Texture(bumpmap, '_bump', compressed=False))
 
 	if (MaterialMode.has_selfillum(src.mode) or MaterialMode.is_pbr(src.mode)) and src.emit:
-			illum_mask = src.emit.convert('uint8', clip=True)
+			emit = texops.make_emit(src)
+			illum_mask = emit.convert('uint8')
 			textures.append(Texture(illum_mask, '_emit'))
 
 	if MaterialMode.is_pbr(src.mode):

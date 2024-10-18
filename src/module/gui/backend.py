@@ -158,7 +158,7 @@ class CoreBackend():
 			albedo=texops.normalize(albedo, detailSize, mode='RGB'),
 			roughness=texops.normalize(roughness, detailSize, mode='L'),
 			metallic=texops.normalize(metallic, detailSize, mode='L'),
-			emit=texops.normalize(emit, detailSize) if emit else None,
+			emit=texops.normalize(emit, detailSize, noAlpha=True) if emit else None,
 			ao=texops.normalize(ao, detailSize, mode='L') if ao else None,
 			normal=texops.normalize(normal, detailSize, mode='RGB'),
 			height=texops.normalize(height, detailSize, mode='L') if height else None,

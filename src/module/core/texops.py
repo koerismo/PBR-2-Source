@@ -16,7 +16,7 @@ References:
 	phongmask     = ((1-roughness)^5.4) * 2
 '''
 
-def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'RGB', 'RGBA']|None=None):
+def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'RGB', 'RGBA']|None=None, noAlpha: bool=False):
 	''' Normalizes an input image to function with other operations. '''
 
 	# All of this code is necessary to ensure that PIL imports work,
@@ -41,6 +41,8 @@ def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'R
 
 	if mode:
 		img = img.normalize(mode)
+	elif noAlpha and img.channels == 4:
+		img = img.normalize('RGB')
 
 	return img
 
@@ -84,7 +86,7 @@ def make_envmask(mat: Material) -> Image:
 	mask2 = mat.roughness.copy().invert().pow(5)
 	if mat.ao: mask2.mult(mat.ao)
 
-	# Multiply to account for lack of reflectivity on brushes
+	# Multiply to account for lack of reflectivity when no phong is present
 	if not MaterialMode.has_phong(mat.mode):
 		mask2.mult(2.0)
 
@@ -155,3 +157,12 @@ def make_mrao(mat: Material) -> Image:
 
 	ao = mat.ao or Image.blank(mat.size, color=(1,))
 	return Image.merge((mat.metallic, mat.roughness, ao))
+
+
+def make_emit(mat: Material) -> Image:
+	''' Gamma-corrects the emission map if necessary to match Strata PBR. '''
+
+	assert mat.emit != None
+
+	if MaterialMode.is_pbr(mat.mode): return mat.emit
+	return mat.emit.pow(2.2)
