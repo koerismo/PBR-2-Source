@@ -23,7 +23,7 @@ class MaterialMode(IntEnum):
 	def has_phong(mat: 'MaterialMode'): return mat >= 10 and mat <= 13
 
 	@staticmethod
-	def has_envmap(mat: 'MaterialMode'): return mat >= 11 and mat <= 13
+	def has_envmap(mat: 'MaterialMode'): return mat >= 11 and mat <= 22
 
 	@staticmethod
 	def is_vlg(mat: 'MaterialMode'): return mat >= 10 and mat <= 13
