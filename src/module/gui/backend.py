@@ -10,6 +10,7 @@ from ..core.vmt import make_vmt as core_make_vmt
 from ..core.io.image import Image
 from ..core.material import Material, MaterialMode, GameTarget, NormalType
 from ..preset import Preset
+from ..logger import log
 
 from pathlib import Path
 from enum import StrEnum
@@ -144,9 +145,9 @@ class CoreBackend():
 
 		texSize = (self.scaleTarget, self.scaleTarget) if (self.scaleTarget and self.scaleTarget <= albedo.size[0]) else albedo.size
 		detailSize = (texSize[0]*2, texSize[1]*2) if (self.scaleTarget and texSize[0]*2 <= normal.size[0]) else normal.size
-		print('Determined size', texSize, 'for albedo and', detailSize, 'for details via scale target', self.scaleTarget)
+		log.info('Determined size', texSize, 'for albedo and', detailSize, 'for details via scale target', self.scaleTarget)
 
-		print('Constructing material...')
+		log.info('Constructing material...')
 
 		return Material(
 			self.mode,

@@ -1,4 +1,5 @@
 from ..version import __version__
+from ..logger import log
 from ..config import AppConfig, AppTheme, load_config
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
@@ -148,7 +149,7 @@ class PickableImage( QFrame ):
 		else:
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
-		print(self.kind.capitalize(), 'icon updated!')
+		log.info(self.kind.capitalize(), 'icon updated!')
 
 	def on_icon_click(self):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
@@ -408,7 +409,7 @@ class MainWindow( QMainWindow ):
 		set_icon(img)
 
 	def pick_target(self):
-		print('Picking target')
+		log.debug('Picking target')
 		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
 		if len(targetPath): self.target = targetPath
 
@@ -417,7 +418,7 @@ class MainWindow( QMainWindow ):
 		if self.exporting: return
 		self.exporting = True
 			
-		print('Exporting...')
+		log.info('Exporting...')
 		self.exportButton.setEnabled(False)
 		self.progressBar.setValue(0)
 		QApplication.processEvents()
@@ -433,7 +434,7 @@ class MainWindow( QMainWindow ):
 			targetPath: str = self.target # type: ignore
 
 			def log_callback(msg: str):
-				print('Export:', msg)
+				log.info('Export:', msg)
 				self.progressBar.setFormat(msg)
 				QApplication.processEvents()
 
@@ -449,9 +450,9 @@ class MainWindow( QMainWindow ):
 			self.progressBar.setFormat('')
 
 			if isinstance(e, InterruptedError):
-				print('The export was cancelled by the user.')
+				log.info('The export was cancelled by the user.')
 			else:
-				print('The export failed!\n\n', format_exc())
+				log.warning('The export failed!\n\n', format_exc())
 				message = QMessageBox(QMessageBox.Icon.Critical, 'Failed to export!', str(e))
 				message.exec()
 		
@@ -474,7 +475,7 @@ class MainWindow( QMainWindow ):
 		self.watching = not self.watching
 		if self.watching:	self.start_watch()
 		else:				self.stop_watch()
-		print('Watching:', self.watcher.files())
+		log.info('Watching:', self.watcher.files())
 	
 	def start_watch(self):
 		self.watchAction.setText('Stop Watching')
@@ -495,10 +496,10 @@ class MainWindow( QMainWindow ):
 
 	def reset_watch(self):
 		if not self.watching: return
-		print('Resetting watch...')
+		log.info('Resetting watch...')
 		self.stop_watch()
 		self.start_watch()
-		print('Watching:', self.watcher.files())
+		log.info('Watching:', self.watcher.files())
 
 	def force_stop_watch(self, issue: str='An error occurred!'):
 		if not self.watching: return
@@ -508,7 +509,7 @@ class MainWindow( QMainWindow ):
 	@Slot()
 	def on_file_changed(self, file: str):
 		assert self.watching, 'SOMETHING HAS GONE VERY WRONG HERE!!'
-		print('File changed:', file)
+		log.info('File changed:', file)
 		self.watcherCooldown.start(500)
 
 	@Slot()
@@ -560,6 +561,14 @@ def start_gui():
 	with open(get_internal_path('res/icon.icns'), 'rb') as file:
 		app_icon_file = ICNS.get_icon(file.read(), size=256, variant=(None if dt.month // 2 != 3 else b'stpr'))
 		assert app_icon_file != None, 'Failed to read icon!'
+
+	# Hack to make sure Windows applies the application icon correctly.
+	# Only should be used when not showing a terminal - otherwise it causes the app to appear duplicated.
+	# https://stackoverflow.com/a/27872625
+	# if platform == 'win32':
+	# 	from ctypes import windll
+	# 	myappid = u'com.koerismo.pbr-2-source'
+	# 	windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 	app_icon = QPixmap()
 	app_icon.loadFromData(app_icon_file)
