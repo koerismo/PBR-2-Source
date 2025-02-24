@@ -113,17 +113,17 @@ def make_basecolor(mat: Material) -> Image:
 	(r, g, b) = basetexture.split()[:3]
 
 	# Do we need to embed the phong mask instead of envmap mask?
-	if Material.swap_phong_envmap(mat):
-		# Phong mask as basetexture alpha
-		if MaterialMode.has_phong(mat.mode):
-			phongmask = make_phong_mask(mat)
-			basetexture = Image.merge((r, g, b, phongmask))
+	using_phong = Material.swap_phong_envmap(mat)
 
-	else:
-		# Envmap mask as basetexture alpha
-		if MaterialMode.embed_envmap(mat.mode):
-			envmask = make_envmask(mat)
-			basetexture = Image.merge((r, g, b, envmask))
+	# Phong mask as basetexture alpha
+	if using_phong and MaterialMode.has_phong(mat.mode):
+		phongmask = make_phong_mask(mat)
+		basetexture = Image.merge((r, g, b, phongmask))
+
+	# Envmap mask as basetexture alpha
+	elif not using_phong and MaterialMode.embed_envmap(mat.mode):
+		envmask = make_envmask(mat)
+		basetexture = Image.merge((r, g, b, envmask))
 
 	return basetexture
 
@@ -131,10 +131,13 @@ def make_basecolor(mat: Material) -> Image:
 def make_bumpmap(mat: Material) -> Image:
 	''' Generates a RGB/RGBA bumpmap with embedded phong information when applicable. '''
 
-	if mat.mode < 2: return mat.normal
-
 	(r, g, b) = mat.normal.split()
 	if mat.normalType == NormalType.GL: g.invert()
+
+	# If using PBR, then we don't need to worry about phong.
+	if MaterialMode.is_pbr(mat.mode):
+		if not mat.height: return mat.normal
+		return Image.merge((r, g, b, mat.height))
 
 	# Do we need to embed the envmap mask instead of phong mask?
 	if Material.swap_phong_envmap(mat):
@@ -145,9 +148,6 @@ def make_bumpmap(mat: Material) -> Image:
 		if MaterialMode.has_phong(mat.mode):
 			phongmask = make_phong_mask(mat)
 			return Image.merge((r, g, b, phongmask))
-	
-	if MaterialMode.is_pbr(mat.mode) and mat.height:
-		return Image.merge((r, g, b, mat.height))
 
 	return Image.merge((r, g, b))
 

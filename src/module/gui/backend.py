@@ -155,7 +155,7 @@ class CoreBackend():
 			texSize,
 			detailSize,
 			self.name,
-			albedo=texops.normalize(albedo, detailSize, mode='RGB'),
+			albedo=texops.normalize(albedo, detailSize, mode='RGBA'),
 			roughness=texops.normalize(roughness, detailSize, mode='L'),
 			metallic=texops.normalize(metallic, detailSize, mode='L'),
 			emit=texops.normalize(emit, detailSize, noAlpha=True) if emit else None,
