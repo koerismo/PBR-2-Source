@@ -14,7 +14,7 @@ def load_vtf(file: IO[bytes]):
 	vtf = VTF.read(file)
 	frame = vtf.get()
 	frame.load()
-	data = np.array(frame._data).reshape((frame.width, frame.height, 4))
+	data = (np.array(frame._data) / 255.0).reshape((frame.width, frame.height, 4))
 	return Image(data)
 
 def image_to_qimage(image: Image) -> QImage:
@@ -39,7 +39,6 @@ class QtIOBackend(IOBackend):
 			
 		im = QImage()
 		im.load(str(path))
-		im.convertToColorSpace(QColorSpace.NamedColorSpace.SRgbLinear)
 		return im
 
 	@staticmethod

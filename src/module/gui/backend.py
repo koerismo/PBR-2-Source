@@ -141,7 +141,7 @@ class CoreBackend():
 		emit = getImage(ImageRole.Emit)
 		ao = getImage(ImageRole.AO)
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
-		height = getImage(ImageRole.Height) or Image.blank(normal.size, (0.5,))
+		height = getImage(ImageRole.Height)
 
 		texSize = (self.scaleTarget, self.scaleTarget) if (self.scaleTarget and self.scaleTarget <= albedo.size[0]) else albedo.size
 		detailSize = (texSize[0]*2, texSize[1]*2) if (self.scaleTarget and texSize[0]*2 <= normal.size[0]) else normal.size
