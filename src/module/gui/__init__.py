@@ -11,9 +11,9 @@ from .backend import CoreBackend, ImageRole
 from typing import Any
 from sys import argv, platform
 from traceback import format_exc
-import subprocess
 import sys
 from datetime import datetime
+from srctools.run import send_engine_command
 
 from pathlib import Path
 from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer
@@ -442,8 +442,12 @@ class MainWindow( QMainWindow ):
 			self.backend.export(material, log_callback)
 			self.progressBar.setValue(100)
 
-			if self.config.hijackTarget:
-				subprocess.Popen([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
+			if self.config.hijack:
+				try:
+					cmd = f'+mat_reloadmaterial {self.backend.name}'
+					send_engine_command(bytes(cmd, encoding='utf-8'))
+				except BaseException as e:
+					print('Failed to send hijack command.\n', format_exc(e))
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
