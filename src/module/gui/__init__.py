@@ -1,5 +1,5 @@
 from ..version import __version__
-from ..logger import log
+import logging as log
 from ..config import AppConfig, AppTheme, load_config
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
@@ -16,8 +16,8 @@ from datetime import datetime
 from srctools.run import send_engine_command
 
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer
-from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag
+from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl
+from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices
 from PySide6.QtWidgets import (
 	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
@@ -149,7 +149,7 @@ class PickableImage( QFrame ):
 		else:
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
-		log.info(self.kind.capitalize(), 'icon updated!')
+		log.info(self.kind.capitalize()+' icon updated!')
 
 	def on_icon_click(self):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
@@ -191,7 +191,7 @@ class MainWindow( QMainWindow ):
 		#region init
 		super().__init__(parent)
 
-		self.setWindowTitle('PBR-2-Source v'+__version__)
+		self.setWindowTitle(None)
 
 		self.watcherCooldown = QTimer()
 		self.watcherCooldown.setSingleShot(True)
@@ -392,6 +392,16 @@ class MainWindow( QMainWindow ):
 		self.progressBar.setFormat('') # Avoid displaying a percentage
 		footer.addWidget(self.progressBar)
 
+
+		# TODO: Qt doesn't seem to have a nice way to transfer the text color to an icon.
+		self.revealButton = QPushButton(QPixmap('./res/reveal.svg'), '')
+		self.revealButton.setMaximumWidth(32)
+		self.revealButton.setToolTip('Reveal in folder')
+		self.revealButton.setDisabled(True)
+		self.revealButton.clicked.connect(self.reveal_folder)
+		footer.addWidget(self.revealButton)
+
+
 		self.exportButton = QPushButton('Export As...')
 		self.exportButton.clicked.connect(self.export_as)
 		footer.addWidget(self.exportButton)
@@ -402,16 +412,35 @@ class MainWindow( QMainWindow ):
 		self.setMinimumSize(self.sizeHint())
 		self.resize(600, 450)
 
+	def setWindowTitle(self, subtitle: str|None=None):
+		base_title = 'PBR-2-Source v'+__version__
+		if subtitle != None: base_title += ' - '+subtitle
+		super().setWindowTitle(base_title)
+
 	@Slot()
 	def picked(self, kind: ImageRole, path: Path|None, set_icon):
 		img = self.backend.pick(str(path) if path else None, kind)
 		self.reset_watch()
 		set_icon(img)
 
-	def pick_target(self):
+	def pick_target(self, reset=False):
+		if reset:
+			log.debug('Resetting target')
+			self.target = None
+			self.revealButton.setDisabled(True)
+			self.setWindowTitle()
+			return
+
 		log.debug('Picking target')
-		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
+		options: Any = {'options': QFileDialog.Option.DontConfirmOverwrite } if not self.config.overwriteVmts else {}
+		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', **options)[0]
 		if len(targetPath): self.target = targetPath
+
+		if self.target:
+			self.setWindowTitle(Path(self.target).name)
+			self.revealButton.setDisabled(False)
+		else:
+			self.setWindowTitle()
 
 	@Slot()
 	def export(self):
@@ -426,20 +455,21 @@ class MainWindow( QMainWindow ):
 		try:
 			self.progressBar.setFormat('Creating material...')
 			material = self.backend.make_material(self.config.reloadOnExport)
-			self.progressBar.setValue(50)
+			self.progressBar.setValue(20)
 
 			if self.target == None: self.pick_target()
 			if self.target == None: raise InterruptedError()
 			
 			targetPath: str = self.target # type: ignore
 
-			def log_callback(msg: str):
-				log.info('Export:', msg)
-				self.progressBar.setFormat(msg)
+			def log_callback(msg: str|None, percent: int|None):
+				log.info(f'Export ({self.progressBar.value()}%): {msg}')
+				if msg: self.progressBar.setFormat(msg)
+				if percent: self.progressBar.setValue(percent)
 				QApplication.processEvents()
 
 			self.backend.pick_vmt(targetPath)
-			self.backend.export(material, log_callback)
+			self.backend.export(material, log_callback, overwrite_vmt=self.config.overwriteVmts)
 			self.progressBar.setValue(100)
 
 			if self.config.hijack:
@@ -447,7 +477,7 @@ class MainWindow( QMainWindow ):
 					cmd = f'+mat_reloadmaterial {self.backend.name}'
 					send_engine_command(bytes(cmd, encoding='utf-8'))
 				except BaseException as e:
-					print('Failed to send hijack command.\n', format_exc(e))
+					log.error(f'Failed to send hijack command!\n\n{format_exc()}')
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
@@ -456,7 +486,7 @@ class MainWindow( QMainWindow ):
 			if isinstance(e, InterruptedError):
 				log.info('The export was cancelled by the user.')
 			else:
-				log.warning('The export failed!\n\n', format_exc())
+				log.warning(f'The export failed!\n\n{format_exc()}')
 				message = QMessageBox(QMessageBox.Icon.Critical, 'Failed to export!', str(e))
 				message.exec()
 		
@@ -467,8 +497,14 @@ class MainWindow( QMainWindow ):
 	@Slot()
 	def export_as(self):
 		if self.exporting: return
-		self.target = None
+		self.pick_target(reset=True)
 		self.export()
+
+	@Slot()
+	def reveal_folder(self):
+		if self.target == None: return
+		path = Path(self.target).parent
+		QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
 	@Slot()
 	def watch(self):
@@ -522,7 +558,7 @@ class MainWindow( QMainWindow ):
 		if not len(selected): return
 
 		# Reset target path
-		self.target = None
+		self.pick_target(reset=True)
 
 		preset = Preset.load(selected)
 		self.gameDropdown.setCurrentData(preset.game)
@@ -536,9 +572,6 @@ class MainWindow( QMainWindow ):
 	def save_preset(self):
 		selected = QFileDialog.getSaveFileName(self, caption='Saving preset...', filter='JSON Presets (*.json)')[0]
 		if not len(selected): return
-
-		# Reset target path
-		self.target = None
 		
 		preset = Preset()
 		self.backend.save_preset(preset)

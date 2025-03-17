@@ -109,39 +109,10 @@ class QtIOBackend(IOBackend):
 	@staticmethod
 	def resize(image: Image, dims: tuple[int, int]) -> Image:
 		# TODO: This causes segfaults sometimes. WTF?
-		qimage = image_to_qimage(image)
+		# TODO: Verify that this actually fixes it.
+		qimage = image_to_qimage(image).copy()
 		qimage = qimage.scaled(dims[0], dims[1], Qt.AspectRatioMode.IgnoreAspectRatio)
 		return qimage_to_image(qimage)
-
-# def apply_gamma(image: QImage, gamma: float) -> None:
-# 	for y in range(0, image.height()):
-# 		for x in range(0, image.width()):
-# 			col = image.pixelColor(x, y)
-# 			col.setRedF(col.redF() ** gamma)
-# 			col.setGreenF(col.greenF() ** gamma)
-# 			col.setBlueF(col.blueF() ** gamma)
-# 			col.setAlphaF(col.alphaF() ** gamma)
-# 			image.setPixelColor(x, y, col)
-
-def DEPRECATED_load(path: str) -> Image:
-	image = QImage()
-	image.load(path)
-
-	# color_space = image.colorSpace()
-	# gamma = color_space.gamma()
-	# description = color_space.description()
-	# print(path.split('\\')[-1], color_space.gamma(), color_space.primaries(), color_space.description())
-
-	# if description == "sRGB IEC61966-2.1":
-	# 	print('Attempting to adjust gamma of image', path.split('\\')[-1], 'from', color_space.description())
-	# 	apply_gamma(image, 1.3)
-	#	image.setColorSpace(QColorSpace.NamedColorSpace.sRgbLinear)
-
-	image = image.convertedTo(QImage.Format.Format_RGBA8888, Qt.ImageConversionFlag.NoOpaqueDetection)
-	ptr = image.constBits()
-	arr = np.array(ptr).reshape(image.width(), image.height(), 4)
-	return Image(arr)
-
 
 def export(image: Image, path: str, version: int):
 	data = image.data
@@ -173,13 +144,3 @@ def export(image: Image, path: str, version: int):
 
 	with open(path, 'wb') as file:
 		vtf.save(file)
-
-# def resize(image: Image, size: tuple[int, int]):
-# 	b = image.data.tobytes()
-# 	width, height = image.size
-# 	bpl = image.data.itemsize * width
-# 	q = QImage(
-# 		b, width, height
-#     bpl,
-#     QImage.Format.Format_RGBA32FPx4
-# 	)

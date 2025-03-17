@@ -56,7 +56,7 @@ def make_phong_exponent(mat: Material) -> Image:
 	assert mat.roughness != None
 
 	MAX_EXPONENT = 32 # $phongexponentfactor 32
-	exponent_r = mat.roughness.copy().pow(-3).mult(0.8).div(MAX_EXPONENT)
+	exponent_r = mat.roughness.copy().pow(-2).mult(0.8 / MAX_EXPONENT)
 	# exponent_g = Image.blank(mat.size, color=(1,))
 	# exponent_b = Image.blank(mat.size, color=(0,))
 	# exponent = Image.merge((exponent_r, exponent_g, exponent_b))
@@ -70,7 +70,7 @@ def make_phong_mask(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	mask = mat.roughness.copy().invert().pow(5).mult(2)
+	mask = mat.roughness.copy().invert().pow(4).mult(1.3)
 	if mat.ao: mask.mult(mat.ao)
 
 	return mask
@@ -82,13 +82,12 @@ def make_envmask(mat: Material) -> Image:
 	assert mat.metallic != None
 	assert mat.roughness != None
 
-	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
-	mask2 = mat.roughness.copy().invert().pow(5)
-	if mat.ao: mask2.mult(mat.ao)
+	# Decrease exponent when no phong is present to account for lack of reflectivity
+	roughness_exp = 5 if MaterialMode.has_phong(mat.mode) else 3
 
-	# Multiply to account for lack of reflectivity when no phong is present
-	if not MaterialMode.has_phong(mat.mode):
-		mask2.mult(2.0)
+	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
+	mask2 = mat.roughness.copy().invert().pow(roughness_exp)
+	if mat.ao: mask2.mult(mat.ao)
 
 	return mask1.mult(mask2)
 
@@ -124,6 +123,10 @@ def make_basecolor(mat: Material) -> Image:
 	elif not using_phong and MaterialMode.embed_envmap(mat.mode):
 		envmask = make_envmask(mat)
 		basetexture = Image.merge((r, g, b, envmask))
+
+	# No alpha - remove the channel so we can use DXT1.
+	elif not MaterialMode.has_alpha(mat.mode):
+		basetexture = Image.merge((r, g, b))
 
 	return basetexture
 
