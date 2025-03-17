@@ -108,7 +108,15 @@ def make_basecolor(mat: Material) -> Image:
 		ao = mat.ao.copy().mult(ao_blend).add(1 - ao_blend)
 		mask.mult(ao)
 
+	# Convert mask to an RGBA image to avoid multiplying the alpha
+	mask_alpha = Image.blank(mask.size, (1,))
+	mask = Image.merge((mask, mask, mask, mask_alpha))
 	basetexture = mat.albedo.copy().mult(mask)
+	
+	# Basetexture already contains alpha, don't embed masks
+	if MaterialMode.has_alpha(mat.mode):
+		return basetexture
+	
 	(r, g, b) = basetexture.split()[:3]
 
 	# Do we need to embed the phong mask instead of envmap mask?
