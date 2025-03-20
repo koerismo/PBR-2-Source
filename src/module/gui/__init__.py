@@ -17,7 +17,7 @@ from srctools.run import send_engine_command
 
 from pathlib import Path
 from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl
-from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices
+from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
 	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
@@ -214,11 +214,11 @@ class MainWindow( QMainWindow ):
 		self.setMenuBar(menuBar)
 		fileMenu = menuBar.addMenu('File')
 		loadAction = fileMenu.addAction('Load Preset')
-		loadAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_O))
+		loadAction.setShortcut(QKeySequence.StandardKey.Open)
 		loadAction.triggered.connect(self.load_preset)
 
 		saveAction = fileMenu.addAction('Save Preset')
-		saveAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_S))
+		saveAction.setShortcut(QKeySequence.StandardKey.Save)
 		saveAction.triggered.connect(self.save_preset)
 		
 		fileMenu.addSeparator()
@@ -228,11 +228,17 @@ class MainWindow( QMainWindow ):
 
 		exportAction = fileMenu.addAction('Export')
 		exportAction.triggered.connect(self.export)
-		exportAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_E))
+		exportAction.setShortcuts([
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_E)),
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
+			])
 		
 		exportAsAction = fileMenu.addAction('Export As...')
 		exportAsAction.triggered.connect(self.export_as)
-		exportAsAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E))
+		exportAsAction.setShortcuts([
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E)),
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
+			])
 		
 		#endregion
 		''' ========================== LAYOUT ========================== '''
@@ -446,9 +452,16 @@ class MainWindow( QMainWindow ):
 	def export(self):
 		if self.exporting: return
 		self.exporting = True
-			
+
+		overwriteVmts = self.config.overwriteVmts
+		if not overwriteVmts:
+			keyModifiers = QApplication.queryKeyboardModifiers()
+			overwriteVmts = bool(keyModifiers & keyModifiers.AltModifier)
+			log.info('Alt key active: VMT overwrite is enabled for this export.')
+
 		log.info('Exporting...')
 		self.exportButton.setEnabled(False)
+		self.progressBar.setFormat('Exporting...')
 		self.progressBar.setValue(0)
 		QApplication.processEvents()
 
@@ -469,7 +482,7 @@ class MainWindow( QMainWindow ):
 				QApplication.processEvents()
 
 			self.backend.pick_vmt(targetPath)
-			self.backend.export(material, log_callback, overwrite_vmt=self.config.overwriteVmts)
+			self.backend.export(material, log_callback, overwrite_vmt=overwriteVmts)
 			self.progressBar.setValue(100)
 
 			if self.config.hijack:
