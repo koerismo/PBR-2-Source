@@ -21,7 +21,7 @@ def image_to_qimage(image: Image) -> QImage:
 	''' Converts an Image to a Qt QImage. (U8) '''
 	width, height = image.size
 	bpp = image.channels
-	data = image.tobytes(np.uint8)
+	data = image.convert(np.uint8).tobytes(np.uint8)
 
 	format: QImage.Format
 	match image.channels:
@@ -34,7 +34,7 @@ def image_to_qimage(image: Image) -> QImage:
 	qimage = QImage(data, width, height, bpp*width, format)
 	if qimage.isNull():
 		raise Exception(f'QImage is null: Failed to convert the data to an acceptable format? Report this issue!')
-	
+
 	return qimage
 
 def qimage_to_image(qimage: QImage) -> Image:
@@ -96,10 +96,6 @@ class QtIOBackend(IOBackend):
 				if compressed:	target_format = ImageFormats.DXT5
 				format = ImageFormats.RGBA8888
 				flags |= VTFFlags.EIGHTBITALPHA
-			case (4, 'uint16'):
-				format = ImageFormats.RGBA16161616
-				flags |= VTFFlags.EIGHTBITALPHA
-				max_value = 0xffff
 			case (4, 'float16'):
 				format = ImageFormats.RGBA16161616F
 				flags |= VTFFlags.EIGHTBITALPHA
@@ -137,34 +133,3 @@ class QtIOBackend(IOBackend):
 		qimage = image_to_qimage(image)
 		scaled = qimage.scaled(dims[0], dims[1], Qt.AspectRatioMode.IgnoreAspectRatio)
 		return qimage_to_image(scaled)
-
-def export(image: Image, path: str, version: int):
-	data = image.data
-	if not isinstance(data, np.ndarray):
-		raise TypeError(f"Vtf writer expected nparray, but got {type(data)} instead!")
-
-	height, width, bands = data.shape
-
-	format = None
-	flags = VTFFlags.EMPTY
-	match (bands, data.dtype):
-		case (1, 'uint8'): format = ImageFormats.I8
-		case (3, 'uint8'): format = ImageFormats.RGB888
-		case (4, 'uint8'):
-			format = ImageFormats.RGBA8888
-			flags |= VTFFlags.EIGHTBITALPHA
-		case (4, 'uint16'):
-			format = ImageFormats.RGBA16161616
-			flags |= VTFFlags.EIGHTBITALPHA
-		case (4, 'float16'):
-			format = ImageFormats.RGBA16161616F
-			flags |= VTFFlags.EIGHTBITALPHA
-
-	if format is None:
-		raise TypeError(f"Could not match format {data.dtype}x{bands}!")
-
-	vtf = VTF(width, height, (7, version), fmt=format, flags=flags)
-	vtf.get().copy_from(data.tobytes('C'), format)
-
-	with open(path, 'wb') as file:
-		vtf.save(file)

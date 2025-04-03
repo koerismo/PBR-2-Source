@@ -530,7 +530,7 @@ class MainWindow( QMainWindow ):
 		self.watching = not self.watching
 		if self.watching:	self.start_watch()
 		else:				self.stop_watch()
-		log.info('Watching:', self.watcher.files())
+		log.info(f'Watching: {self.watcher.files()}')
 	
 	def start_watch(self):
 		self.watchAction.setText('Stop Watching')
@@ -554,7 +554,7 @@ class MainWindow( QMainWindow ):
 		log.info('Resetting watch...')
 		self.stop_watch()
 		self.start_watch()
-		log.info('Watching:', self.watcher.files())
+		log.info(f'Watching: {self.watcher.files()}')
 
 	def force_stop_watch(self, issue: str='An error occurred!'):
 		if not self.watching: return
