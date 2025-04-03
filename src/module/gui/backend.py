@@ -57,8 +57,8 @@ class CoreBackend():
 		pass
 
 	def load_preset(self, preset: Preset):
-		self.game = preset.game
-		self.mode = preset.mode
+		# All input change events should be fired,
+		# so we shouldn't need to do anything here.
 		pass
 	
 	def save_preset(self, preset: Preset):
@@ -99,7 +99,7 @@ class CoreBackend():
 	def pick(self, path: str|None, role: ImageRole) -> QImage|None:
 		# Update current path
 		self.__setattr__(role+'Path', path)
-			
+
 		if path:
 			# Cache image
 			return self.convert(path, role)[0]

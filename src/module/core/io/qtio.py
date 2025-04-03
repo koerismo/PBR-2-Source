@@ -1,7 +1,7 @@
 from pathlib import Path
 from .image import Image, IOBackend
 
-from PySide6.QtGui import QImage, QColorSpace, QColor
+from PySide6.QtGui import QImage
 from PySide6.QtCore import Qt
 
 import numpy as np
@@ -19,16 +19,40 @@ def load_vtf(file: IO[bytes]):
 
 def image_to_qimage(image: Image) -> QImage:
 	''' Converts an Image to a Qt QImage. (U8) '''
-	size = image.size
-	return QImage(image.tobytes(np.float16), size[0], size[1], QImage.Format.Format_RGBA16FPx4)
+	width, height = image.size
+	bpp = image.channels
+	data = image.tobytes(np.uint8)
 
-def qimage_to_image(im: QImage) -> Image:
-	''' Converts a Qt QImage to an Image. (U8) '''
-	im = im.convertToFormat(QImage.Format.Format_RGBA16FPx4)
-	ptr = im.constBits()
-	# TODO: Yes, width/height are swapped intentionally. No, I don't completely understand it either.
-	src = np.frombuffer(ptr, dtype=np.float16).copy().reshape(im.height(), im.width(), 4)
-	return Image(src)
+	format: QImage.Format
+	match image.channels:
+		case 1: format = QImage.Format.Format_Grayscale8
+		case 3: format = QImage.Format.Format_RGB888
+		case 4: format = QImage.Format.Format_RGBA8888
+		case count:
+			raise Exception(f'Cannot convert Image to QImage with {count} channels!')
+
+	qimage = QImage(data, width, height, bpp*width, format)
+	if qimage.isNull():
+		raise Exception(f'QImage is null: Failed to convert the data to an acceptable format? Report this issue!')
+	
+	return qimage
+
+def qimage_to_image(qimage: QImage) -> Image:
+	''' Converts a Qt QImage to an Image. (U8/F16x4) '''
+	channels: int
+	dtype = np.uint8
+	match qimage.format():
+		case QImage.Format.Format_Grayscale8: channels = 1
+		case QImage.Format.Format_RGB888: channels = 3
+		case QImage.Format.Format_RGBA8888: channels = 4
+		case _:
+			channels = 4
+			dtype = np.float16
+			qimage = qimage.convertToFormat(QImage.Format.Format_RGBA16FPx4)
+
+	ptr = qimage.constBits()
+	data = np.frombuffer(ptr, dtype=dtype).copy().reshape(qimage.height(), qimage.width(), channels)
+	return Image(data)
 
 class QtIOBackend(IOBackend):
 	@staticmethod
@@ -109,10 +133,10 @@ class QtIOBackend(IOBackend):
 	@staticmethod
 	def resize(image: Image, dims: tuple[int, int]) -> Image:
 		# TODO: This causes segfaults sometimes. WTF?
-		# TODO: Verify that this actually fixes it.
-		qimage = image_to_qimage(image).copy()
-		qimage = qimage.scaled(dims[0], dims[1], Qt.AspectRatioMode.IgnoreAspectRatio)
-		return qimage_to_image(qimage)
+		# TODO: Verify fixes. AGAIN.
+		qimage = image_to_qimage(image)
+		scaled = qimage.scaled(dims[0], dims[1], Qt.AspectRatioMode.IgnoreAspectRatio)
+		return qimage_to_image(scaled)
 
 def export(image: Image, path: str, version: int):
 	data = image.data

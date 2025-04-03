@@ -44,6 +44,8 @@ class QDataComboBox( QComboBox ):
 				index = i
 				break
 		self.setCurrentIndex(index)
+		# TODO: Qt Docs say this should fire when we do the above, but it doesn't.
+		self.currentIndexChanged.emit(index)
 
 class RClickToolButton( QToolButton ):
 	rightClicked = Signal( name='RightClicked' )
@@ -487,7 +489,7 @@ class MainWindow( QMainWindow ):
 
 			if self.config.hijack:
 				try:
-					cmd = f'+mat_reloadmaterial {self.backend.name}'
+					cmd = f'mat_reloadmaterial {self.backend.name}'
 					send_engine_command(bytes(cmd, encoding='utf-8'))
 				except BaseException as e:
 					log.error(f'Failed to send hijack command!\n\n{format_exc()}')
@@ -571,6 +573,7 @@ class MainWindow( QMainWindow ):
 		if not len(selected): return
 
 		# Reset target path
+		if self.watching: self.stop_watch()
 		self.pick_target(reset=True)
 
 		preset = Preset.load(selected)
@@ -580,6 +583,8 @@ class MainWindow( QMainWindow ):
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
 		# self.hintDropdown.setCurrentData(preset.hint)
 		# self.envmapDropdown.setCurrentData(preset.envmap)
+
+		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
 	
 	def save_preset(self):
