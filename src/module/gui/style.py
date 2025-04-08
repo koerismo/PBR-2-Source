@@ -74,6 +74,11 @@ QPushButton:pressed {
 	color: #ddd;
 }
 
+QPushButton:disabled {
+	background-color: #333;
+	border: 1px solid #333;
+}
+
 QProgressBar {
     border: 1px solid #333;
 	background-color: #282828;

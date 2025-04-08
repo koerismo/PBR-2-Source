@@ -133,6 +133,7 @@ class Image():
 
 	def tobytes(self, format: DTypeLike) -> bytes:
 		''' Converts this image to bytes. '''
+		if self.data.dtype == format: return self.data.tobytes('C')
 		return self.data.astype(format).tobytes('C')
 
 	def save(self, path: str|Path, version: int=5, compressed: bool=True) -> bool:

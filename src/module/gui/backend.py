@@ -10,7 +10,7 @@ from ..core.vmt import make_vmt as core_make_vmt
 from ..core.io.image import Image
 from ..core.material import Material, MaterialMode, GameTarget, NormalType
 from ..preset import Preset
-from ..logger import log
+import logging as log
 
 from pathlib import Path
 from enum import StrEnum
@@ -24,6 +24,9 @@ class ImageRole(StrEnum):
 	AO = 'ao'
 	Normal = 'normal'
 	Height = 'height'
+
+# Used as a default dummy callback by export()
+CALLBACK_NONE = lambda _a, _b: None
 
 class CoreBackend():
 	albedo: Image|None = None
@@ -54,8 +57,8 @@ class CoreBackend():
 		pass
 
 	def load_preset(self, preset: Preset):
-		self.game = preset.game
-		self.mode = preset.mode
+		# All input change events should be fired,
+		# so we shouldn't need to do anything here.
 		pass
 	
 	def save_preset(self, preset: Preset):
@@ -96,7 +99,7 @@ class CoreBackend():
 	def pick(self, path: str|None, role: ImageRole) -> QImage|None:
 		# Update current path
 		self.__setattr__(role+'Path', path)
-			
+
 		if path:
 			# Cache image
 			return self.convert(path, role)[0]
@@ -141,11 +144,11 @@ class CoreBackend():
 		emit = getImage(ImageRole.Emit)
 		ao = getImage(ImageRole.AO)
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
-		height = getImage(ImageRole.Height) or Image.blank(normal.size, (0.5,))
+		height = getImage(ImageRole.Height)
 
 		texSize = (self.scaleTarget, self.scaleTarget) if (self.scaleTarget and self.scaleTarget <= albedo.size[0]) else albedo.size
 		detailSize = (texSize[0]*2, texSize[1]*2) if (self.scaleTarget and texSize[0]*2 <= normal.size[0]) else normal.size
-		log.info('Determined size', texSize, 'for albedo and', detailSize, 'for details via scale target', self.scaleTarget)
+		log.info(f'Determined size {texSize} for albedo and {detailSize} for details via scale target {self.scaleTarget}')
 
 		log.info('Constructing material...')
 
@@ -155,7 +158,7 @@ class CoreBackend():
 			texSize,
 			detailSize,
 			self.name,
-			albedo=texops.normalize(albedo, detailSize, mode='RGB'),
+			albedo=texops.normalize(albedo, detailSize, mode='RGBA'),
 			roughness=texops.normalize(roughness, detailSize, mode='L'),
 			metallic=texops.normalize(metallic, detailSize, mode='L'),
 			emit=texops.normalize(emit, detailSize, noAlpha=True) if emit else None,
@@ -165,35 +168,39 @@ class CoreBackend():
 			normalType=self.normalType
 		)
 
-	def export(self, material: Material, callback: Callable[[str], None] | None = None):
+	def export(self, material: Material, callback: Callable[[str|None, int|None], None] = CALLBACK_NONE, overwrite_vmt=True):
 		assert self.path != None and self.name != None, 'Something has gone very very wrong. Find a developer!'
 
 		# TODO: This is kinda dumb
 		material.name = self.name
 
-		if callback:
-			callback('Processing textures...')
+		callback('Processing textures...', 20)
 
 		textures = core_export(material)
 		textureVersion = GameTarget.vtf_version(material.target)
+		textureCount = len(textures)
 
-		if callback:
-			callback('Making VMT...')
+		materialName = self.name.rsplit('/', 1)[-1]
+		vmtPath = self.path / (materialName + '.vmt')
+		shouldWriteVmt = overwrite_vmt or (not Path(vmtPath).exists())
 
-		vmt = core_make_vmt(material)
-		
-		isolatedName = self.name.rsplit('/', 1)[-1]
-		vmtPath = self.path / (isolatedName + '.vmt')
+		callback(None, 50)
+		if shouldWriteVmt:
+			callback('Writing VMT...', None)
+			vmt = core_make_vmt(material)
+			with open(vmtPath, 'w') as vmtFile:
+				vmtFile.write(vmt)
+		else:
+			log.info('Skipped generating VMT! (appconfig.toml: overwrite-vmts is False)')
 
-		if callback:
-			callback('Writing files...')
+		callback(f'Writing textures...', 60)
 
-		with open(vmtPath, 'w') as vmtFile:
-			vmtFile.write(vmt)
-
-		for texture in textures:
-			fullPath = self.path / (isolatedName + texture.name + '.vtf')
+		for i, texture in enumerate(textures):
+			fullPath = self.path / (materialName + texture.name + '.vtf')
 			texture.image.save(fullPath, version=textureVersion, compressed=texture.compressed)
+			callback(f'Writing textures... [{i+1}/{textureCount}]', 60 + int((i+1) / textureCount * 40))
 
-		if callback:
-			callback(f'Finished exporting {isolatedName}.vmt!')
+		if shouldWriteVmt:
+			callback(f'Finished exporting {materialName}.vmt!', 100)
+		else:
+			callback(f'Finished exporting {materialName}_*.vtf!', 100)

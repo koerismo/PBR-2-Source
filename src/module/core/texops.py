@@ -56,7 +56,7 @@ def make_phong_exponent(mat: Material) -> Image:
 	assert mat.roughness != None
 
 	MAX_EXPONENT = 32 # $phongexponentfactor 32
-	exponent_r = mat.roughness.copy().pow(-3).mult(0.8).div(MAX_EXPONENT)
+	exponent_r = mat.roughness.copy().pow(-2).mult(0.8 / MAX_EXPONENT)
 	# exponent_g = Image.blank(mat.size, color=(1,))
 	# exponent_b = Image.blank(mat.size, color=(0,))
 	# exponent = Image.merge((exponent_r, exponent_g, exponent_b))
@@ -70,7 +70,7 @@ def make_phong_mask(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	mask = mat.roughness.copy().invert().pow(5).mult(2)
+	mask = mat.roughness.copy().invert().pow(4).mult(1.3)
 	if mat.ao: mask.mult(mat.ao)
 
 	return mask
@@ -82,13 +82,12 @@ def make_envmask(mat: Material) -> Image:
 	assert mat.metallic != None
 	assert mat.roughness != None
 
-	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
-	mask2 = mat.roughness.copy().invert().pow(5)
-	if mat.ao: mask2.mult(mat.ao)
+	# Decrease exponent when no phong is present to account for lack of reflectivity
+	roughness_exp = 5 if MaterialMode.has_phong(mat.mode) else 3
 
-	# Multiply to account for lack of reflectivity when no phong is present
-	if not MaterialMode.has_phong(mat.mode):
-		mask2.mult(2.0)
+	mask1 = mat.metallic.copy().mult(0.75).add(0.25)
+	mask2 = mat.roughness.copy().invert().pow(roughness_exp)
+	if mat.ao: mask2.mult(mat.ao)
 
 	return mask1.mult(mask2)
 
@@ -109,21 +108,33 @@ def make_basecolor(mat: Material) -> Image:
 		ao = mat.ao.copy().mult(ao_blend).add(1 - ao_blend)
 		mask.mult(ao)
 
+	# Convert mask to an RGBA image to avoid multiplying the alpha
+	mask_alpha = Image.blank(mask.size, (1,))
+	mask = Image.merge((mask, mask, mask, mask_alpha))
 	basetexture = mat.albedo.copy().mult(mask)
+	
+	# Basetexture already contains alpha, don't embed masks
+	if MaterialMode.has_alpha(mat.mode):
+		return basetexture
+	
 	(r, g, b) = basetexture.split()[:3]
 
 	# Do we need to embed the phong mask instead of envmap mask?
-	if Material.swap_phong_envmap(mat):
-		# Phong mask as basetexture alpha
-		if MaterialMode.has_phong(mat.mode):
-			phongmask = make_phong_mask(mat)
-			basetexture = Image.merge((r, g, b, phongmask))
+	using_phong = Material.swap_phong_envmap(mat)
 
-	else:
-		# Envmap mask as basetexture alpha
-		if MaterialMode.embed_envmap(mat.mode):
-			envmask = make_envmask(mat)
-			basetexture = Image.merge((r, g, b, envmask))
+	# Phong mask as basetexture alpha
+	if using_phong and MaterialMode.has_phong(mat.mode):
+		phongmask = make_phong_mask(mat)
+		basetexture = Image.merge((r, g, b, phongmask))
+
+	# Envmap mask as basetexture alpha
+	elif not using_phong and MaterialMode.embed_envmap(mat.mode):
+		envmask = make_envmask(mat)
+		basetexture = Image.merge((r, g, b, envmask))
+
+	# No alpha - remove the channel so we can use DXT1.
+	elif not MaterialMode.has_alpha(mat.mode):
+		basetexture = Image.merge((r, g, b))
 
 	return basetexture
 
@@ -131,10 +142,13 @@ def make_basecolor(mat: Material) -> Image:
 def make_bumpmap(mat: Material) -> Image:
 	''' Generates a RGB/RGBA bumpmap with embedded phong information when applicable. '''
 
-	if mat.mode < 2: return mat.normal
-
 	(r, g, b) = mat.normal.split()
 	if mat.normalType == NormalType.GL: g.invert()
+
+	# If using PBR, then we don't need to worry about phong.
+	if MaterialMode.is_pbr(mat.mode):
+		if not mat.height: return mat.normal
+		return Image.merge((r, g, b, mat.height))
 
 	# Do we need to embed the envmap mask instead of phong mask?
 	if Material.swap_phong_envmap(mat):
@@ -145,9 +159,6 @@ def make_bumpmap(mat: Material) -> Image:
 		if MaterialMode.has_phong(mat.mode):
 			phongmask = make_phong_mask(mat)
 			return Image.merge((r, g, b, phongmask))
-	
-	if MaterialMode.is_pbr(mat.mode) and mat.height:
-		return Image.merge((r, g, b, mat.height))
 
 	return Image.merge((r, g, b))
 

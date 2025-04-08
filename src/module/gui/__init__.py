@@ -1,5 +1,5 @@
 from ..version import __version__
-from ..logger import log
+import logging as log
 from ..config import AppConfig, AppTheme, load_config
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
@@ -11,13 +11,13 @@ from .backend import CoreBackend, ImageRole
 from typing import Any
 from sys import argv, platform
 from traceback import format_exc
-import subprocess
 import sys
 from datetime import datetime
+from srctools.run import send_engine_command
 
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer
-from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag
+from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl
+from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
 	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
@@ -44,6 +44,8 @@ class QDataComboBox( QComboBox ):
 				index = i
 				break
 		self.setCurrentIndex(index)
+		# TODO: Qt Docs say this should fire when we do the above, but it doesn't.
+		self.currentIndexChanged.emit(index)
 
 class RClickToolButton( QToolButton ):
 	rightClicked = Signal( name='RightClicked' )
@@ -149,7 +151,7 @@ class PickableImage( QFrame ):
 		else:
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
-		log.info(self.kind.capitalize(), 'icon updated!')
+		log.info(self.kind.capitalize()+' icon updated!')
 
 	def on_icon_click(self):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
@@ -191,7 +193,7 @@ class MainWindow( QMainWindow ):
 		#region init
 		super().__init__(parent)
 
-		self.setWindowTitle('PBR-2-Source v'+__version__)
+		self.setWindowTitle(None)
 
 		self.watcherCooldown = QTimer()
 		self.watcherCooldown.setSingleShot(True)
@@ -214,11 +216,11 @@ class MainWindow( QMainWindow ):
 		self.setMenuBar(menuBar)
 		fileMenu = menuBar.addMenu('File')
 		loadAction = fileMenu.addAction('Load Preset')
-		loadAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_O))
+		loadAction.setShortcut(QKeySequence.StandardKey.Open)
 		loadAction.triggered.connect(self.load_preset)
 
 		saveAction = fileMenu.addAction('Save Preset')
-		saveAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_S))
+		saveAction.setShortcut(QKeySequence.StandardKey.Save)
 		saveAction.triggered.connect(self.save_preset)
 		
 		fileMenu.addSeparator()
@@ -228,11 +230,17 @@ class MainWindow( QMainWindow ):
 
 		exportAction = fileMenu.addAction('Export')
 		exportAction.triggered.connect(self.export)
-		exportAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_E))
+		exportAction.setShortcuts([
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_E)),
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
+			])
 		
 		exportAsAction = fileMenu.addAction('Export As...')
 		exportAsAction.triggered.connect(self.export_as)
-		exportAsAction.setShortcut(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E))
+		exportAsAction.setShortcuts([
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E)),
+			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
+			])
 		
 		#endregion
 		''' ========================== LAYOUT ========================== '''
@@ -392,6 +400,16 @@ class MainWindow( QMainWindow ):
 		self.progressBar.setFormat('') # Avoid displaying a percentage
 		footer.addWidget(self.progressBar)
 
+
+		# TODO: Qt doesn't seem to have a nice way to transfer the text color to an icon.
+		self.revealButton = QPushButton(QPixmap('./res/reveal.svg'), '')
+		self.revealButton.setMaximumWidth(32)
+		self.revealButton.setToolTip('Reveal in folder')
+		self.revealButton.setDisabled(True)
+		self.revealButton.clicked.connect(self.reveal_folder)
+		footer.addWidget(self.revealButton)
+
+
 		self.exportButton = QPushButton('Export As...')
 		self.exportButton.clicked.connect(self.export_as)
 		footer.addWidget(self.exportButton)
@@ -402,48 +420,79 @@ class MainWindow( QMainWindow ):
 		self.setMinimumSize(self.sizeHint())
 		self.resize(600, 450)
 
+	def setWindowTitle(self, subtitle: str|None=None):
+		base_title = 'PBR-2-Source v'+__version__
+		if subtitle != None: base_title += ' - '+subtitle
+		super().setWindowTitle(base_title)
+
 	@Slot()
 	def picked(self, kind: ImageRole, path: Path|None, set_icon):
 		img = self.backend.pick(str(path) if path else None, kind)
 		self.reset_watch()
 		set_icon(img)
 
-	def pick_target(self):
+	def pick_target(self, reset=False):
+		if reset:
+			log.debug('Resetting target')
+			self.target = None
+			self.revealButton.setDisabled(True)
+			self.setWindowTitle()
+			return
+
 		log.debug('Picking target')
-		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)')[0]
+		options: Any = {'options': QFileDialog.Option.DontConfirmOverwrite } if not self.config.overwriteVmts else {}
+		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', **options)[0]
 		if len(targetPath): self.target = targetPath
+
+		if self.target:
+			self.setWindowTitle(Path(self.target).name)
+			self.revealButton.setDisabled(False)
+		else:
+			self.setWindowTitle()
 
 	@Slot()
 	def export(self):
 		if self.exporting: return
 		self.exporting = True
-			
+
+		overwriteVmts = self.config.overwriteVmts
+		if not overwriteVmts:
+			keyModifiers = QApplication.queryKeyboardModifiers()
+			overwriteVmts = bool(keyModifiers & keyModifiers.AltModifier)
+			log.info('Alt key active: VMT overwrite is enabled for this export.')
+
 		log.info('Exporting...')
 		self.exportButton.setEnabled(False)
+		self.progressBar.setFormat('Exporting...')
 		self.progressBar.setValue(0)
 		QApplication.processEvents()
 
 		try:
 			self.progressBar.setFormat('Creating material...')
 			material = self.backend.make_material(self.config.reloadOnExport)
-			self.progressBar.setValue(50)
+			self.progressBar.setValue(20)
 
 			if self.target == None: self.pick_target()
 			if self.target == None: raise InterruptedError()
 			
 			targetPath: str = self.target # type: ignore
 
-			def log_callback(msg: str):
-				log.info('Export:', msg)
-				self.progressBar.setFormat(msg)
+			def log_callback(msg: str|None, percent: int|None):
+				log.info(f'Export ({self.progressBar.value()}%): {msg}')
+				if msg: self.progressBar.setFormat(msg)
+				if percent: self.progressBar.setValue(percent)
 				QApplication.processEvents()
 
 			self.backend.pick_vmt(targetPath)
-			self.backend.export(material, log_callback)
+			self.backend.export(material, log_callback, overwrite_vmt=overwriteVmts)
 			self.progressBar.setValue(100)
 
-			if self.config.hijackTarget:
-				subprocess.Popen([self.config.hijackTarget, '-hijack', f'+mat_reloadmaterial {self.backend.name}'])
+			if self.config.hijack:
+				try:
+					cmd = f'mat_reloadmaterial {self.backend.name}'
+					send_engine_command(bytes(cmd, encoding='utf-8'))
+				except BaseException as e:
+					log.error(f'Failed to send hijack command!\n\n{format_exc()}')
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
@@ -452,7 +501,7 @@ class MainWindow( QMainWindow ):
 			if isinstance(e, InterruptedError):
 				log.info('The export was cancelled by the user.')
 			else:
-				log.warning('The export failed!\n\n', format_exc())
+				log.warning(f'The export failed!\n\n{format_exc()}')
 				message = QMessageBox(QMessageBox.Icon.Critical, 'Failed to export!', str(e))
 				message.exec()
 		
@@ -463,8 +512,14 @@ class MainWindow( QMainWindow ):
 	@Slot()
 	def export_as(self):
 		if self.exporting: return
-		self.target = None
+		self.pick_target(reset=True)
 		self.export()
+
+	@Slot()
+	def reveal_folder(self):
+		if self.target == None: return
+		path = Path(self.target).parent
+		QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
 	@Slot()
 	def watch(self):
@@ -475,7 +530,7 @@ class MainWindow( QMainWindow ):
 		self.watching = not self.watching
 		if self.watching:	self.start_watch()
 		else:				self.stop_watch()
-		log.info('Watching:', self.watcher.files())
+		log.info(f'Watching: {self.watcher.files()}')
 	
 	def start_watch(self):
 		self.watchAction.setText('Stop Watching')
@@ -499,7 +554,7 @@ class MainWindow( QMainWindow ):
 		log.info('Resetting watch...')
 		self.stop_watch()
 		self.start_watch()
-		log.info('Watching:', self.watcher.files())
+		log.info(f'Watching: {self.watcher.files()}')
 
 	def force_stop_watch(self, issue: str='An error occurred!'):
 		if not self.watching: return
@@ -518,7 +573,8 @@ class MainWindow( QMainWindow ):
 		if not len(selected): return
 
 		# Reset target path
-		self.target = None
+		if self.watching: self.stop_watch()
+		self.pick_target(reset=True)
 
 		preset = Preset.load(selected)
 		self.gameDropdown.setCurrentData(preset.game)
@@ -527,14 +583,13 @@ class MainWindow( QMainWindow ):
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
 		# self.hintDropdown.setCurrentData(preset.hint)
 		# self.envmapDropdown.setCurrentData(preset.envmap)
+
+		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
 	
 	def save_preset(self):
 		selected = QFileDialog.getSaveFileName(self, caption='Saving preset...', filter='JSON Presets (*.json)')[0]
 		if not len(selected): return
-
-		# Reset target path
-		self.target = None
 		
 		preset = Preset()
 		self.backend.save_preset(preset)
