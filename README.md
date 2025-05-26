@@ -1,7 +1,7 @@
 # PBR-2-Source
 A Python-powered gui for converting pbr materials into Source Engine-compatible materials.
 
-### Features
+## Features
 - Supports PNG, JPG, BMP, and TGA input.
 - Automatically generates material VMTs.
 - Generates out-of-the-box functional materials for both PBR and traditional shaders.
@@ -14,3 +14,29 @@ A Python-powered gui for converting pbr materials into Source Engine-compatible 
  
 ---
 ### [View Builds](https://github.com/koerismo/PBR-2-Source/releases)
+
+## Building from Source
+
+### With uv
+
+```
+uv init
+uv run PyInstaller build.spec
+```
+
+### With pip
+
+```
+# Create a new virtual env
+python -m venv ./venv
+
+# Activate the venv (Windows)
+./venv/Scripts/activate.bat
+
+# Activate the venv (Unix/linux)
+source ./venv/Scripts/activate
+
+pip install -r requirements.txt
+
+python -m PyInstaller build.spec
+```
