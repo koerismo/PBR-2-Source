@@ -146,7 +146,10 @@ class CoreBackend():
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
 		height = getImage(ImageRole.Height)
 
-		texSize = (self.scaleTarget, self.scaleTarget) if (self.scaleTarget and self.scaleTarget <= albedo.size[0]) else albedo.size
+		aspectWidth, aspectHeight = albedo.size
+		aspectMaxSize = max(aspectWidth, aspectHeight)
+		textureScale =  (min(aspectMaxSize, self.scaleTarget) / aspectMaxSize) if self.scaleTarget else 1
+		texSize = (int(aspectWidth * textureScale), int(aspectHeight * textureScale))
 		detailSize = (texSize[0]*2, texSize[1]*2) if (self.scaleTarget and texSize[0]*2 <= normal.size[0]) else normal.size
 		log.info(f'Determined size {texSize} for albedo and {detailSize} for details via scale target {self.scaleTarget}')
 
