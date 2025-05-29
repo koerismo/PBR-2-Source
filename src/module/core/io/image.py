@@ -80,13 +80,15 @@ class Image():
 	def convert(self, dtype: DTypeLike, clip=False) -> 'Image':
 		''' Returns a copy of this image, converted to the specified datatype. '''
 		obj_dtype = np.dtype(dtype)
-		max_from: int = 1 if self.data.dtype.kind == 'f' else 2**(self.data.dtype.itemsize*8) - 1
+		data = self.data
+
+		max_from: int = 1 if data.dtype.kind == 'f' else 2**(data.dtype.itemsize*8) - 1
 		max_to: int   = 1 if obj_dtype.kind == 'f' else 2**(obj_dtype.itemsize*8) - 1
-		new_data = self.data.copy('C') * (max_to / max_from)
 
 		if clip:
-			new_data = new_data.clip(0, max_to)
+			data = data.clip(0, max_from)
 
+		new_data = data.copy('C') * (max_to / max_from)
 		return Image(new_data.astype(obj_dtype))
 
 	def split(self) -> list["Image"]:
@@ -120,16 +122,30 @@ class Image():
 		gray = r.mult(0.2126).add(g.mult(0.7152)).add(b.mult(0.0722))
 		return gray
 
-	def average(self):
+	def average(self) -> np.ndarray:
 		return np.average(self.data, (0, 1))
 
-	def get_channel(self, channel: int) -> int:
+	def has_transparency(self) -> bool:
+		''' Attempts to determine what kind of transparency this image has. '''
+		if self.channels < 4: return False
+		alpha = self.get_channel(3)
+		count_all = alpha.size
+		count_solid = np.sum(alpha == 1.0)
+		if count_solid == count_all: return False
+		return True
+		# While this is cool, it should definitely be user-controlled.
+		# count_alpha = np.sum(alpha == 0.0)
+		# percent_cutout = ((count_alpha + count_solid) / count_all)
+		# if percent_cutout > 0.95: return 1 # cutout
+		# return 2 # full
+
+	def get_channel(self, channel: int) -> np.ndarray:
 		if channel >= self.channels: raise ValueError(f'Attempted to get channel {channel+1} of {self.channels}-channel image!')
 		return self.data.swapaxes(0, 2)[channel]
 
-	def set_channel(self, channel: int, image: "Image"):
+	def set_channel(self, channel: int, data: np.ndarray):
 		if channel >= self.channels: raise ValueError(f'Attempted to set channel {channel+1} of {self.channels}-channel image!')
-		self.data.swapaxes(0, 2)[channel] = image.data
+		self.data.swapaxes(0, 2)[channel] = data
 
 	def tobytes(self, format: DTypeLike) -> bytes:
 		''' Converts this image to bytes. '''

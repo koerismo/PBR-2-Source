@@ -99,11 +99,20 @@ def make_basecolor(mat: Material) -> Image:
 	assert mat.roughness != None
 	assert mat.albedo != None
 
+	basetexture = mat.albedo.copy()
+
+	# Do nothing when converting to PBR
+	if MaterialMode.is_pbr(mat.mode):
+		if not basetexture.has_transparency():
+			return basetexture.normalize('RGB')
+		return basetexture
+
+	# The mask used to darken the basecolor
 	mask = mat.roughness.copy().invert()
 	mask.mult(mat.metallic)
 	mask.invert()
 
-	if not MaterialMode.is_pbr(mat.mode) and mat.ao is not None:
+	if mat.ao is not None:
 		ao_blend = 0.75
 		ao = mat.ao.copy().mult(ao_blend).add(1 - ao_blend)
 		mask.mult(ao)
@@ -111,7 +120,7 @@ def make_basecolor(mat: Material) -> Image:
 	# Convert mask to an RGBA image to avoid multiplying the alpha
 	mask_alpha = Image.blank(mask.size, (1,))
 	mask = Image.merge((mask, mask, mask, mask_alpha))
-	basetexture = mat.albedo.copy().mult(mask)
+	basetexture.mult(mask)
 	
 	# Basetexture already contains alpha, don't embed masks
 	if MaterialMode.has_alpha(mat.mode):
@@ -124,19 +133,20 @@ def make_basecolor(mat: Material) -> Image:
 
 	# Phong mask as basetexture alpha
 	if using_phong and MaterialMode.has_phong(mat.mode):
+		# TODO: See below
 		phongmask = make_phong_mask(mat)
-		basetexture = Image.merge((r, g, b, phongmask))
+		phongmask.data = phongmask.data.clip(min=(1 / 255))
+		return Image.merge((r, g, b, phongmask))
 
 	# Envmap mask as basetexture alpha
 	elif not using_phong and MaterialMode.embed_envmap(mat.mode):
+		# TODO: This sucks, but srctools has forced my hand. Libsquish needs a flag to account for full-alpha, which we can't give it.
 		envmask = make_envmask(mat)
-		basetexture = Image.merge((r, g, b, envmask))
+		envmask.data = envmask.data.clip(min=(1 / 255))
+		return Image.merge((r, g, b, envmask))
 
 	# No alpha - remove the channel so we can use DXT1.
-	elif not MaterialMode.has_alpha(mat.mode):
-		basetexture = Image.merge((r, g, b))
-
-	return basetexture
+	return Image.merge((r, g, b))
 
 
 def make_bumpmap(mat: Material) -> Image:

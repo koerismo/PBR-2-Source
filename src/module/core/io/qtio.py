@@ -101,10 +101,10 @@ class QtIOBackend(IOBackend):
 				flags |= VTFFlags.EIGHTBITALPHA
 				max_value = 1.0
 
-		if format is None:
+		if format == None:
 			raise TypeError(f"Could not match format {image.data.dtype}x{bands}!")
 
-		if target_format is None:
+		if target_format == None:
 			target_format = format
 
 		vtf = VTF(width, height, (7, version), fmt=target_format, flags=flags)
