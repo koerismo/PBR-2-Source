@@ -176,7 +176,7 @@ def make_bumpmap(mat: Material) -> Image:
 def make_mrao(mat: Material) -> Image:
 	''' Generates a RGB MRAO texture. '''
 
-	ao = mat.ao or Image.blank(mat.size, color=(1,))
+	ao = mat.ao or Image.blank(mat.detailSize, color=(1,))
 	return Image.merge((mat.metallic, mat.roughness, ao))
 
 

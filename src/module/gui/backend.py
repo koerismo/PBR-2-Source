@@ -1,6 +1,6 @@
 # from PySide6.QtCore import Signal, Slot
 # from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QColorSpace
+from PySide6.QtGui import QImage
 
 from ..core.io.qtio import QtIOBackend, qimage_to_image, image_to_qimage
 
@@ -11,6 +11,7 @@ from ..core.io.image import Image
 from ..core.material import Material, MaterialMode, GameTarget, NormalType
 from ..preset import Preset
 import logging as log
+from math import ceil, log2
 
 from pathlib import Path
 from enum import StrEnum
@@ -146,28 +147,34 @@ class CoreBackend():
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
 		height = getImage(ImageRole.Height)
 
-		aspectWidth, aspectHeight = albedo.size
-		aspectMaxSize = max(aspectWidth, aspectHeight)
-		textureScale =  (min(aspectMaxSize, self.scaleTarget) / aspectMaxSize) if self.scaleTarget else 1
-		texSize = (int(aspectWidth * textureScale), int(aspectHeight * textureScale))
-		detailSize = (texSize[0]*2, texSize[1]*2) if (self.scaleTarget and texSize[0]*2 <= normal.size[0]) else normal.size
-		log.info(f'Determined size {texSize} for albedo and {detailSize} for details via scale target {self.scaleTarget}')
+		def to_pow2(x: float) -> int:
+			return pow(2, ceil(log2(int(x))))
+
+		
+		albedoWidth, albedoHeight = albedo.size
+		albedoMaxSize = max(albedoWidth, albedoHeight)
+		texScale      = (min(albedoMaxSize, self.scaleTarget) / albedoMaxSize) if self.scaleTarget else 1
+		texDims       = (to_pow2(albedoWidth * texScale), to_pow2(albedoHeight * texScale))
+		detailDims    = normal.size
+		detailDims    = (texDims[0]*2, texDims[1]*2) if (self.scaleTarget and texDims[0]*2 <= normal.size[0]) else (to_pow2(detailDims[0]), to_pow2(detailDims[1]))
+		
+		log.info(f'Determined size {texDims} for albedo and {detailDims} for details via scale target {self.scaleTarget}')
 
 		log.info('Constructing material...')
 
 		return Material(
 			self.mode,
 			self.game,
-			texSize,
-			detailSize,
+			texDims,
+			detailDims,
 			self.name,
-			albedo=texops.normalize(albedo, detailSize, mode='RGBA'),
-			roughness=texops.normalize(roughness, detailSize, mode='L'),
-			metallic=texops.normalize(metallic, detailSize, mode='L'),
-			emit=texops.normalize(emit, detailSize, noAlpha=True) if emit else None,
-			ao=texops.normalize(ao, detailSize, mode='L') if ao else None,
-			normal=texops.normalize(normal, detailSize, mode='RGB'),
-			height=texops.normalize(height, detailSize, mode='L') if height else None,
+			albedo=texops.normalize(albedo, detailDims, mode='RGBA'),
+			roughness=texops.normalize(roughness, detailDims, mode='L'),
+			metallic=texops.normalize(metallic, detailDims, mode='L'),
+			emit=texops.normalize(emit, detailDims, noAlpha=True) if emit else None,
+			ao=texops.normalize(ao, detailDims, mode='L') if ao else None,
+			normal=texops.normalize(normal, detailDims, mode='RGB'),
+			height=texops.normalize(height, detailDims, mode='L') if height else None,
 			normalType=self.normalType
 		)
 

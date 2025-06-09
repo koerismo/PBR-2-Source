@@ -558,7 +558,7 @@ class MainWindow( QMainWindow ):
 
 	def force_stop_watch(self, issue: str='An error occurred!'):
 		if not self.watching: return
-		message = QMessageBox(QMessageBox.Icon.Information, title='Watch Error', text=issue)
+		message = QMessageBox(QMessageBox.Icon.Information, 'Watch Error', issue)
 		message.exec()
 
 	@Slot()

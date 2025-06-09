@@ -54,8 +54,10 @@ class Image():
 	@staticmethod
 	def merge(axes: tuple["Image", ...]) -> 'Image':
 		''' Merges N images into one as color channels. '''
-		for img in axes: assert img.channels == 1
 		width, height = axes[0].size
+		for i, img in enumerate(axes):
+			assert img.channels == 1, f'Expected single-channel image when merging channel {i}'
+			assert img.size == (width, height), f'Expected size ({width}, {height}) when merging channel {i}, but got {img.size}'
 		data = np.stack([img.data.reshape((height, width)) for img in axes])
 		return Image(np.swapaxes(np.swapaxes(data, 0, 1), 1, 2))
 
