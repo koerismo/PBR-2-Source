@@ -20,7 +20,7 @@ A Python-powered gui for converting pbr materials into Source Engine-compatible 
 ### With uv
 
 ```
-uv init
+uv sync
 uv run PyInstaller build.spec
 ```
 
