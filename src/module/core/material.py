@@ -1,4 +1,5 @@
 from .io.image import Image
+from .config import TargetRole
 from enum import IntEnum
 
 class MaterialMode(IntEnum):
@@ -122,10 +123,8 @@ class Material:
 
 class Texture():
 	image: Image
-	name: str
-	compressed: bool
+	role: TargetRole
 
-	def __init__(self, image: Image, name: str, compressed: bool=True) -> None:
+	def __init__(self, image: Image, role: TargetRole) -> None:
 		self.image = image
-		self.name = name
-		self.compressed = compressed
+		self.role = role

@@ -1,19 +1,17 @@
 from ..version import __version__
 import logging as log
-from ..config import AppConfig, AppTheme, load_config
+from ..core.config import AppConfig, AppTheme, get_root, get_config
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
-from ..preset import Preset
+from ..core.preset import Preset
 
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET, STYLESHEET_MIN
 from .backend import CoreBackend, ImageRole
 
 from typing import Any
-from sys import argv, platform
+from sys import platform
 from traceback import format_exc
-import sys
 from datetime import datetime
-from srctools.run import send_engine_command
 
 from pathlib import Path
 from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl
@@ -25,16 +23,16 @@ from PySide6.QtWidgets import (
 	QGroupBox, QProgressBar, QPushButton, QComboBox
 )
 
+# from .settings import SettingsWindow
+
+# FONT_MONO = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+
 from urllib.parse import unquote_plus, urlparse
 def uri_to_path(uri: str) -> str:
 	return unquote_plus(urlparse(uri).path)
 
 def get_internal_path(filename: str) -> Path:
-	root_path: str
-	if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-		root_path = getattr(sys, '_MEIPASS')
-	else: root_path = '.'
-	return Path(root_path) / filename
+	return get_root() / filename
 
 class QDataComboBox( QComboBox ):
 	def setCurrentData(self, data: Any):
@@ -226,7 +224,7 @@ class MainWindow( QMainWindow ):
 		fileMenu.addSeparator()
 
 		self.watchAction = fileMenu.addAction('Watch')
-		self.watchAction.triggered.connect(self.watch)
+		self.watchAction.triggered.connect(self.watch_toggle)
 
 		exportAction = fileMenu.addAction('Export')
 		exportAction.triggered.connect(self.export)
@@ -271,7 +269,7 @@ class MainWindow( QMainWindow ):
 
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
-				widget.picked.connect(self.picked)
+				widget.picked.connect(self.on_image_picked)
 				self.update_from_preset.connect(widget.from_preset)
 				parent.addWidget(widget)
 
@@ -357,36 +355,12 @@ class MainWindow( QMainWindow ):
 			self.backend.scaleTarget = scaleTargetDropdown.itemData(x)
 		scaleTargetDropdown.currentIndexChanged.connect(on_changed_scaleTarget)
 
-
-		# rightLayout.addWidget(QLabel('Material Hint'))
-
-		# self.hintDropdown = hintDropdown = QComboBox()
-		# rightLayout.addWidget(hintDropdown)
-		# for text,data in [
-		# 	('None', None),
-		# 	('Brick', 'brick'),
-		# 	('Concrete', 'concrete'),
-		# 	('Rock', 'rock'),
-		# 	('Metal', 'metal'),
-		# 	('Wood', 'wood'),
-		# 	('Dirt', 'dirt'),
-		# 	('Grass', 'grass'),
-		# 	('Sand', 'sand'),
-		# 	('Water', 'water'),
-		# 	('Ice', 'ice'),
-		# 	('Snow', 'snow'),
-		# 	('Flesh', 'flesh'),
-		# 	('Foliage', 'foliage'),
-		# 	('Glass', 'glass'),
-		# 	('Tile', 'tile'),
-		# 	('Cardboard', 'cardboard'),
-		# 	('Plaster', 'plaster'),
-		# 	('Plastic', 'plastic'),
-		# 	('Rubber', 'rubber'),
-		# 	('Carpet', 'carpet'),
-		# 	('Computer', 'computer'),
-		# ]: hintDropdown.addItem(text, data)
-		# hintDropdown.setCurrentData(None)
+		# rightLayout.addWidget(QLabel('Material Parameters'))
+		# matParamEdit = QPlainTextEdit(lineWrapMode=QPlainTextEdit.LineWrapMode.NoWrap, tabStopDistance=16)
+		# matParamEdit.setFont(FONT_MONO)
+		# matParamEdit.setMinimumSize(10, 10)
+		# matParamEdit.setMaximumSize(50, 50)
+		# rightLayout.addWidget(matParamEdit, 0)
 
 		#endregion
 		''' ========================== FOOTER ========================== '''
@@ -402,7 +376,7 @@ class MainWindow( QMainWindow ):
 
 
 		# TODO: Qt doesn't seem to have a nice way to transfer the text color to an icon.
-		self.revealButton = QPushButton(QPixmap('./res/reveal.svg'), '')
+		self.revealButton = QPushButton(QPixmap(get_internal_path('res/reveal.svg')), '')
 		self.revealButton.setMaximumWidth(32)
 		self.revealButton.setToolTip('Reveal in folder')
 		self.revealButton.setDisabled(True)
@@ -426,7 +400,7 @@ class MainWindow( QMainWindow ):
 		super().setWindowTitle(base_title)
 
 	@Slot()
-	def picked(self, kind: ImageRole, path: Path|None, set_icon):
+	def on_image_picked(self, kind: ImageRole, path: Path|None, set_icon):
 		img = self.backend.pick(str(path) if path else None, kind)
 		self.reset_watch()
 		set_icon(img)
@@ -450,8 +424,10 @@ class MainWindow( QMainWindow ):
 		else:
 			self.setWindowTitle()
 
+
+
 	@Slot()
-	def export(self):
+	def export(self, noCache=True):
 		if self.exporting: return
 		self.exporting = True
 
@@ -469,13 +445,13 @@ class MainWindow( QMainWindow ):
 
 		try:
 			self.progressBar.setFormat('Creating material...')
-			material = self.backend.make_material(self.config.reloadOnExport)
+			material = self.backend.make_material(noCache)
 			self.progressBar.setValue(20)
 
 			if self.target == None: self.pick_target()
 			if self.target == None: raise InterruptedError()
 			
-			targetPath: str = self.target # type: ignore
+			targetPath: str = self.target
 
 			def log_callback(msg: str|None, percent: int|None):
 				log.info(f'Export ({self.progressBar.value()}%): {msg}')
@@ -487,12 +463,8 @@ class MainWindow( QMainWindow ):
 			self.backend.export(material, log_callback, overwrite_vmt=overwriteVmts)
 			self.progressBar.setValue(100)
 
-			if self.config.hijack:
-				try:
-					cmd = f'mat_reloadmaterial {self.backend.name}'
-					send_engine_command(bytes(cmd, encoding='utf-8'))
-				except BaseException as e:
-					log.error(f'Failed to send hijack command!\n\n{format_exc()}')
+			if self.config.hijackMode:
+				self.backend.send_engine_command(f'mat_reloadmaterial {self.backend.name}')
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
@@ -521,8 +493,10 @@ class MainWindow( QMainWindow ):
 		path = Path(self.target).parent
 		QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
+	#region Watching
+
 	@Slot()
-	def watch(self):
+	def watch_toggle(self):
 		if not self.watching and self.target == None:
 			self.pick_target()
 			if not self.target: return
@@ -531,7 +505,7 @@ class MainWindow( QMainWindow ):
 		if self.watching:	self.start_watch()
 		else:				self.stop_watch()
 		log.info(f'Watching: {self.watcher.files()}')
-	
+
 	def start_watch(self):
 		self.watchAction.setText('Stop Watching')
 		paths = [x for x in [
@@ -561,11 +535,15 @@ class MainWindow( QMainWindow ):
 		message = QMessageBox(QMessageBox.Icon.Information, 'Watch Error', issue)
 		message.exec()
 
+
 	@Slot()
 	def on_file_changed(self, file: str):
 		assert self.watching, 'SOMETHING HAS GONE VERY WRONG HERE!!'
 		log.info('File changed:', file)
 		self.watcherCooldown.start(500)
+
+	#endregion
+	#region Presets
 
 	@Slot()
 	def load_preset(self):
@@ -595,13 +573,13 @@ class MainWindow( QMainWindow ):
 		self.backend.save_preset(preset)
 		preset.save(selected)
 
+	#endregion
+
+
 def start_gui():
 	app: QApplication = QApplication()
 	app.setApplicationVersion(__version__)	
-	app_config = load_config()
-
-	if '--style-fusion' in argv: app_config.appTheme = AppTheme.Fusion
-	if '--style-native' in argv: app_config.appTheme = AppTheme.Native
+	app_config = get_config()
 
 	match app_config.appTheme:
 		case AppTheme.Default:
@@ -629,8 +607,12 @@ def start_gui():
 	app_icon.loadFromData(app_icon_file)
 	app.setWindowIcon(app_icon)
 
+	# settings = SettingsWindow()
+	# settings.show()
+
 	win = MainWindow( app_config )
 	win.show()
+	
 	app.exec()
 
 if __name__ == '__main__':

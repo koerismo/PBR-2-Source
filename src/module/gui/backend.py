@@ -3,19 +3,23 @@
 from PySide6.QtGui import QImage
 
 from ..core.io.qtio import QtIOBackend, qimage_to_image, image_to_qimage
-
 from ..core import texops
-from ..core.convert import export as core_export
+from ..core.export import export as core_export
 from ..core.vmt import make_vmt as core_make_vmt
 from ..core.io.image import Image
 from ..core.material import Material, MaterialMode, GameTarget, NormalType
-from ..preset import Preset
+from ..core.config import get_config, HijackMode
+from ..core.preset import Preset
 import logging as log
 from math import ceil, log2
 
 from pathlib import Path
 from enum import StrEnum
 from typing import Callable
+
+import sys
+from sourcepp import gamepp
+from socket import socket
 
 class ImageRole(StrEnum):
 	Albedo = 'albedo'
@@ -181,6 +185,8 @@ class CoreBackend():
 	def export(self, material: Material, callback: Callable[[str|None, int|None], None] = CALLBACK_NONE, overwrite_vmt=True):
 		assert self.path != None and self.name != None, 'Something has gone very very wrong. Find a developer!'
 
+		appConfig = get_config()
+
 		# TODO: This is kinda dumb
 		material.name = self.name
 
@@ -206,11 +212,40 @@ class CoreBackend():
 		callback(f'Writing textures...', 60)
 
 		for i, texture in enumerate(textures):
-			fullPath = self.path / (materialName + texture.name + '.vtf')
-			texture.image.save(fullPath, version=textureVersion, compressed=texture.compressed)
+			textureConfig = appConfig.targets[texture.role]
+			fullPath = self.path / (materialName + textureConfig.postfix + '.vtf')
+			texture.image.save(fullPath, version=textureVersion, lossy=textureConfig.lossy)
 			callback(f'Writing textures... [{i+1}/{textureCount}]', 60 + int((i+1) / textureCount * 40))
 
 		if shouldWriteVmt:
 			callback(f'Finished exporting {materialName}.vmt!', 100)
 		else:
 			callback(f'Finished exporting {materialName}_*.vtf!', 100)
+
+	def send_engine_command(self, cmd: str) -> bool:
+		config = get_config()
+	
+		match config.hijackMode:
+			case HijackMode.Disabled:
+				return False
+			
+			case HijackMode.Windows:
+				if sys.platform == 'win32':
+					gi = gamepp.GameInstance.find()
+					gi.command(cmd)
+					return True
+				else:
+					log.error('SendMessage hijacking is only available on Windows systems!')
+					return False
+			
+			case HijackMode.NetCon:
+				sock = socket()
+
+				sock_err = sock.connect_ex(('localhost', config.hijackPort))
+				if sock_err != 0:
+					log.error(f'Failed to open socket! (errcode={sock_err})')
+					return False
+
+				sock.send((cmd + '\n').encode())
+				sock.close()
+				return True

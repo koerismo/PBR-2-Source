@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from .core.material import MaterialMode, GameTarget, NormalType
+from .material import MaterialMode, GameTarget, NormalType
 
 class Preset():
 	paths: dict[str, Path]

@@ -1,4 +1,3 @@
-from srctools.keyvalues import Keyvalues
 from .material import Material, MaterialMode, GameTarget
 
 
