@@ -112,7 +112,7 @@ requires-dist = [
     { name = "pyinstaller", specifier = ">=6.9.0" },
     { name = "pyside6", specifier = ">=6.5.3" },
     { name = "recordclass", specifier = ">=0.23.1" },
-    { name = "sourcepp", specifier = ">=2025.7.11.dev1" },
+    { name = "sourcepp", specifier = ">=2025.7.27" },
 ]
 
 [[package]]
@@ -257,6 +257,24 @@ wheels = [
 
 [[package]]
 name = "sourcepp"
-version = "2025.7.11.dev1"
+version = "2025.7.27"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6e/59/3d9d172c43aa278a953f9fd061c036cc030f9b49e5ffb2d22e1811b2037d/sourcepp-2025.7.11.dev1.tar.gz", hash = "sha256:c0d11bfd03c456f81b556342d11f5b32ea44c455f14008e639650a125cca1dd8", size = 27996, upload-time = "2025-07-11T09:49:31.536Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/c0/14216585f86e3f183613427bb18e4d356eb3d0edc82c9014ebc38421d2a8/sourcepp-2025.7.27.tar.gz", hash = "sha256:79b5136d49b00fde7b4a64b47ed52a855728601baadd3d2bc86ad2f6a04e1cf9", size = 28018, upload-time = "2025-07-27T17:28:39.152Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/ca/a055166c780c517f0c3bb72f722351f72c0b9799cc9e50adfbe1f5e88fb4/sourcepp-2025.7.27-cp310-cp310-manylinux_2_34_x86_64.whl", hash = "sha256:6712c4974e29a8f05993c8eab82209b53d3f23aad8cae9d90758be415bd25b5b", size = 3164065, upload-time = "2025-07-27T17:28:04.403Z" },
+    { url = "https://files.pythonhosted.org/packages/37/80/da741b7fbfd4ac9beab635484a79898b14b078a8cd0c111a2577fc1a8214/sourcepp-2025.7.27-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:5ba0120cea379ddf01659e4f2eaadffa1359576c776a1f6a34ded734713b987f", size = 3813737, upload-time = "2025-07-27T17:28:06.479Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/f5/6483fba47fc6e4bd61e0645e73609bc0db0138b6a52d3ba0e7936d501643/sourcepp-2025.7.27-cp310-cp310-win_amd64.whl", hash = "sha256:556a109f72ec61c67c10f91300e57aacbf44abd0b525f0ae48bb48aacf3daa5e", size = 1786607, upload-time = "2025-07-27T17:28:08.399Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/5e/2f37ab4a9047b7982e4c42f09a020be104b5d2b1202457d8e1998af89cef/sourcepp-2025.7.27-cp311-cp311-manylinux_2_34_x86_64.whl", hash = "sha256:3130fa521e8b9b89ee4e655ab9274498355f91f6c03a7559f3390e773151047d", size = 3164067, upload-time = "2025-07-27T17:28:09.99Z" },
+    { url = "https://files.pythonhosted.org/packages/df/7e/20f546406e9e8f3593ba5394bc06d3fe08e96750318b0b3933b681fff686/sourcepp-2025.7.27-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:4569111bbbf052aa2c709fb243d28b031cb857ba1d42097902b8b6969e446190", size = 3813802, upload-time = "2025-07-27T17:28:12.03Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/a9/d5c798c8764d7c78408c0cc8f09b6a2b15783a38aef0549d7991866b87c7/sourcepp-2025.7.27-cp311-cp311-win_amd64.whl", hash = "sha256:f379928de32406485e7547d34ca34dbf069e0e6bb4cde4bb87c4811ad89b8cfe", size = 1787112, upload-time = "2025-07-27T17:28:13.659Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/b8/e5d99b0c60cbbb7f94da7dbb8400ab32130e41aff6eefa0e26fb1fb230d0/sourcepp-2025.7.27-cp312-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:26f569ebc6269fe27068cf7ec8bf48e218679234f5391446d5a4d4ad349f6435", size = 3163044, upload-time = "2025-07-27T17:28:15.346Z" },
+    { url = "https://files.pythonhosted.org/packages/77/41/5adc078aa82ebc4b23ad3f86d2cbe32ca4c534adfac7c86b47c48ff3cd15/sourcepp-2025.7.27-cp312-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:106b3d0e8f94d6ffcd43a9888a96c333eeefdfd6e5ea07e0822e8a09b7bda385", size = 3812352, upload-time = "2025-07-27T17:28:17.439Z" },
+    { url = "https://files.pythonhosted.org/packages/31/e5/ee5bd7f615893e40e3f3d791b7486eb382a88de100c4ccc6c4a87214d2d0/sourcepp-2025.7.27-cp312-abi3-win_amd64.whl", hash = "sha256:15dd0057019c8de7c8887efb89e547b08ee3880a9aeb5ec4432f1b4dd911b6c6", size = 1784521, upload-time = "2025-07-27T17:28:19.049Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/0b/f6740058b179e5d95c6f170621628c6c46d7cb9bc9f341657758fbdcc3bf/sourcepp-2025.7.27-cp314-cp314t-manylinux_2_34_x86_64.whl", hash = "sha256:079fb28f9f13a3659e24d4b00eafcf68565ad608ab34e6ed7f09551c86c97afc", size = 3167294, upload-time = "2025-07-27T17:28:20.716Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/24/e3ab9f3084ba8a85faffe651c34e6900af8c2bdf8495dee1a414b8d1a400/sourcepp-2025.7.27-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:3057916f23c0055a2075d915e9d3ef79d2de7bee392cec13c10a45d71cfa4a85", size = 3816336, upload-time = "2025-07-27T17:28:22.684Z" },
+    { url = "https://files.pythonhosted.org/packages/66/b4/07fbbce101eafa145b2751bb76f91fde14e92c7e7a91dc6ad8150b3bcf22/sourcepp-2025.7.27-cp314-cp314t-win_amd64.whl", hash = "sha256:16948f7f5920d83a8875fa2b2ab1e50434d0989ca1ed98a2f87a18193da8634e", size = 1941810, upload-time = "2025-07-27T17:28:24.547Z" },
+    { url = "https://files.pythonhosted.org/packages/23/0a/2fb17a88d281086daf11e67cc135ddd042f28cfa93025d05fcc00fcf2478/sourcepp-2025.7.27-pp310-pypy310_pp73-manylinux_2_34_x86_64.whl", hash = "sha256:a4559f9f49ef5f5a7ef9696156ae524bc615ad24c95c985f77724256830b6cd0", size = 3161686, upload-time = "2025-07-27T17:28:31.952Z" },
+    { url = "https://files.pythonhosted.org/packages/40/b2/a3bef8c314b3d5b375a644053c0bd9fb953aeb8c98ebf5deda6e5324a9f7/sourcepp-2025.7.27-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:9ff0a4d22315f4971777e6bb896fbae3ebf312a246099dfd4ba2aca5ada2da59", size = 1784704, upload-time = "2025-07-27T17:28:33.929Z" },
+    { url = "https://files.pythonhosted.org/packages/48/d1/3e742f9d46d9062a0fcfbf75958bce0b8bcd4af404b410966cbd63007d77/sourcepp-2025.7.27-pp311-pypy311_pp73-manylinux_2_34_x86_64.whl", hash = "sha256:af50862393682596524fb052a1079f025b956ae3f0f8ffb94a66da070cb1a124", size = 3162098, upload-time = "2025-07-27T17:28:35.412Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/b3/37320b5e7ee63b6b62a8857e6bc374c84fccbf0b0dd791c7f6e9e27e2d65/sourcepp-2025.7.27-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:77ce24e620f8f9fe452be480016c2134fd40e77bca3ac8fce4eec096dc277920", size = 1785112, upload-time = "2025-07-27T17:28:37.412Z" },
+]
