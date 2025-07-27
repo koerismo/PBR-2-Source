@@ -53,11 +53,8 @@ class RClickToolButton( QToolButton ):
 
 
 class PickableImage( QFrame ):
-	picked = Signal( str, Path, object, name='Picked', arguments=['Kind', 'Path', 'ReturnBack'] )
-	''' Fires when an image has been picked from the filesystem. (Path|None) '''
-
 	name: str
-	kind: str
+	role: ImageRole
 	required: bool
 	path: Path|None = None
 	
@@ -65,10 +62,13 @@ class PickableImage( QFrame ):
 	iconButton: QToolButton
 	icon: QPixmap
 
-	def __init__(self, name: str, kind: str, required: bool, parent: QWidget | None = None, f: Qt.WindowType = Qt.WindowType.Widget) -> None:
+	backend: CoreBackend
+
+	def __init__(self, backend: CoreBackend, name: str, kind: ImageRole, required: bool, parent: QWidget | None = None, f: Qt.WindowType = Qt.WindowType.Widget) -> None:
 		super().__init__(parent, f)
+		self.backend = backend
 		self.name = name
-		self.kind = kind
+		self.role = kind
 		self.required = required
 		self.setAcceptDrops(True)
 
@@ -85,9 +85,9 @@ class PickableImage( QFrame ):
 		self.iconButton.setFixedSize(48, 48)
 		self.iconButton.setIcon(self.icon)
 		self.iconButton.setIconSize(QSize(48, 48))
-		self.iconButton.clicked.connect(self.on_icon_click)
-		self.iconButton.rightClicked.connect(self.on_icon_rclick)
-		self.update_required()
+		self.iconButton.clicked.connect(self.__on_icon_click__)
+		self.iconButton.rightClicked.connect(self.__on_icon_rclick__)
+		self.__update_required__()
 
 		layout.addWidget(self.iconButton)
 		vlayout = QVBoxLayout()
@@ -109,7 +109,7 @@ class PickableImage( QFrame ):
 		self.path_box.setEnabled(False)
 		vlayout.addWidget(self.path_box)
 
-	def update_required(self):
+	def __update_required__(self):
 		if self.required:
 			self.iconButton.setStyleSheet('' if self.path else STYLESHEET_TILE_REQUIRED)
 			self.iconButton.update()
@@ -140,39 +140,43 @@ class PickableImage( QFrame ):
 		event.accept()
 
 		self.path = filePath
-		self.reload()
+		self.__update_meta__()
+
+	def __set_path__(self, path: str):
+		self.path = Path(path)
+		self.__update_meta__()
 	
-	def set_icon(self, img: QImage|None):
+	def __set_icon__(self, img: QImage|None):
 		if img:
 			self.icon = self.icon.fromImage(img)
 			self.iconButton.setIcon(self.icon)
 		else:
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
-		log.info(self.kind.capitalize()+' icon updated!')
+		log.info(self.role.capitalize()+' icon updated!')
 
-	def on_icon_click(self):
-		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
+	def __on_icon_click__(self):
+		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.name} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
 		if len(fileUrls) == 0: return
-		
-		url = Path(fileUrls[0])
-		self.path = url
-		self.reload()
+		self.__set_path__(fileUrls[0])
+		self.backend.set_role_image(fileUrls[0], self.role)
 
-	def on_icon_rclick(self):
+	def __on_icon_rclick__(self):
 		self.path = None
-		self.reload()
+		self.backend.set_role_image(None, self.role)
+		self.__update_meta__()
 
-	def reload(self):
+	def __update_meta__(self):
+		''' Updates the text and styling for this widget. '''
 		self.iconButton.setToolTip(f'{self.path.name} Right-click to remove' if self.path else '')
 		self.path_box.setText(self.path.name if self.path else '')
-		self.picked.emit(self.kind, self.path, self.set_icon)
-		self.update_required()
+		self.__update_required__()
 
 	@Slot()
-	def from_preset(self, preset: Preset):
-		self.path = preset.get_path(self.kind)
-		self.reload()
+	def on_role_updated(self, role: ImageRole, path: str, qimage: QImage):
+		if role != self.role: return
+		self.__set_path__(path)
+		self.__set_icon__(qimage)
 
 class MainWindow( QMainWindow ):
 	update_from_preset = Signal( Preset, name='UpdateFromPreset' )
@@ -181,8 +185,10 @@ class MainWindow( QMainWindow ):
 	exporting: bool = False
 	watching: bool = False
 
-	watcherCooldown: QTimer
+	watcherTimeout: QTimer
 	watcher: QFileSystemWatcher
+	watcherModifiedFiles: set[str]
+
 	config: AppConfig
 	backend: CoreBackend
 	progressBar: QProgressBar
@@ -191,12 +197,12 @@ class MainWindow( QMainWindow ):
 		#region init
 		super().__init__(parent)
 
-		self.setWindowTitle(None)
+		self.setWindowTitle()
 
-		self.watcherCooldown = QTimer()
-		self.watcherCooldown.setSingleShot(True)
-		self.watcherCooldown.timeout.connect(self.export)
-		# self.watcherCooldown.timeout.connect(lambda : print('YIPPEE!!'))
+		self.watcherTimeout = QTimer()
+		self.watcherTimeout.setSingleShot(True)
+		self.watcherTimeout.timeout.connect(self.export)
+		self.watcherModifiedFiles = set()
 
 		self.watcher = QFileSystemWatcher(self)
 		self.watcher.fileChanged.connect(self.on_file_changed)
@@ -269,18 +275,17 @@ class MainWindow( QMainWindow ):
 
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
-				widget.picked.connect(self.on_image_picked)
-				self.update_from_preset.connect(widget.from_preset)
+				self.backend.role_updated.connect(widget.on_role_updated)
 				parent.addWidget(widget)
 
 		registerWidgets(leftLayout, [
-			PickableImage('Basecolor', 'albedo', True),
-			PickableImage('Roughness', 'roughness', True),
-			PickableImage('Metallic', 'metallic', False),
-			PickableImage('Bumpmap', 'normal', False),
-			PickableImage('Heightmap', 'height', False),
-			PickableImage('Ambient Occlusion', 'ao', False),
-			PickableImage('Emission', 'emit', False)
+			PickableImage(self.backend, 'Basecolor', ImageRole.Albedo, True),
+			PickableImage(self.backend, 'Roughness', ImageRole.Roughness, True),
+			PickableImage(self.backend, 'Metallic', ImageRole.Metallic, False),
+			PickableImage(self.backend, 'Bumpmap', ImageRole.Normal, False),
+			PickableImage(self.backend, 'Heightmap', ImageRole.Height, False),
+			PickableImage(self.backend, 'Ambient Occlusion', ImageRole.AO, False),
+			PickableImage(self.backend, 'Emission', ImageRole.Emit, False)
 		])
 		leftLayout.addStretch(1)
 
@@ -394,16 +399,17 @@ class MainWindow( QMainWindow ):
 		self.setMinimumSize(self.sizeHint())
 		self.resize(600, 450)
 
-	def setWindowTitle(self, subtitle: str|None=None):
+	def setWindowTitle(self):
 		base_title = 'PBR-2-Source v'+__version__
-		if subtitle != None: base_title += ' - '+subtitle
+		if self.watching: base_title += ' (Watching)'
+		if self.target != None: base_title += ' - ' + Path(self.target).name
 		super().setWindowTitle(base_title)
 
-	@Slot()
-	def on_image_picked(self, kind: ImageRole, path: Path|None, set_icon):
-		img = self.backend.pick(str(path) if path else None, kind)
-		self.reset_watch()
-		set_icon(img)
+	# @Slot()
+	# def on_image_picked(self, kind: ImageRole, path: Path|None, set_icon):
+	# 	img = self.backend.set_image(str(path) if path else None, kind)
+	# 	self.reset_watch()
+	# 	set_icon(img)
 
 	def pick_target(self, reset=False):
 		if reset:
@@ -419,12 +425,11 @@ class MainWindow( QMainWindow ):
 		if len(targetPath): self.target = targetPath
 
 		if self.target:
-			self.setWindowTitle(Path(self.target).name)
 			self.revealButton.setDisabled(False)
-		else:
-			self.setWindowTitle()
 
+		self.setWindowTitle()
 
+	#region Exporting
 
 	@Slot()
 	def export(self, noCache=True):
@@ -435,7 +440,7 @@ class MainWindow( QMainWindow ):
 		if not overwriteVmts:
 			keyModifiers = QApplication.queryKeyboardModifiers()
 			overwriteVmts = bool(keyModifiers & keyModifiers.AltModifier)
-			log.info('Alt key active: VMT overwrite is enabled for this export.')
+			if overwriteVmts: log.info('Alt key active: VMT overwrite is enabled for this export.')
 
 		log.info('Exporting...')
 		self.exportButton.setEnabled(False)
@@ -493,6 +498,7 @@ class MainWindow( QMainWindow ):
 		path = Path(self.target).parent
 		QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
+	#endregion
 	#region Watching
 
 	@Slot()
@@ -504,7 +510,8 @@ class MainWindow( QMainWindow ):
 		self.watching = not self.watching
 		if self.watching:	self.start_watch()
 		else:				self.stop_watch()
-		log.info(f'Watching: {self.watcher.files()}')
+		log.info(f'Watching {len(self.watcher.files())} files.\n')
+		self.setWindowTitle()
 
 	def start_watch(self):
 		self.watchAction.setText('Stop Watching')
@@ -535,12 +542,12 @@ class MainWindow( QMainWindow ):
 		message = QMessageBox(QMessageBox.Icon.Information, 'Watch Error', issue)
 		message.exec()
 
-
 	@Slot()
-	def on_file_changed(self, file: str):
-		assert self.watching, 'SOMETHING HAS GONE VERY WRONG HERE!!'
-		log.info('File changed:', file)
-		self.watcherCooldown.start(500)
+	def on_file_changed(self, _file: str):
+		assert self.watching, 'on_file_changed handler not detatched. Tell a programmer!'
+		if not self.watcherTimeout.isActive():
+			log.info(f'Files changed! Starting timeout...')
+		self.watcherTimeout.start(500)
 
 	#endregion
 	#region Presets

@@ -51,6 +51,8 @@ def qimage_to_image(qimage: QImage) -> Image:
 			qimage = qimage.convertToFormat(QImage.Format.Format_RGBA16FPx4)
 
 	ptr = qimage.constBits()
+	assert ptr, 'Failed to get QImage data handle!'
+
 	data = np.frombuffer(ptr, dtype=dtype).copy().reshape(qimage.height(), qimage.width(), channels)
 	return Image(data)
 

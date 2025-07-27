@@ -1,6 +1,7 @@
 # from PySide6.QtCore import Signal, Slot
 # from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
+from PySide6.QtCore import Signal, QObject
 
 from ..core.io.qtio import QtIOBackend, qimage_to_image, image_to_qimage
 from ..core import texops
@@ -12,6 +13,7 @@ from ..core.config import get_config, HijackMode
 from ..core.preset import Preset
 import logging as log
 from math import ceil, log2
+from time import perf_counter
 
 from pathlib import Path
 from enum import StrEnum
@@ -33,7 +35,12 @@ class ImageRole(StrEnum):
 # Used as a default dummy callback by export()
 CALLBACK_NONE = lambda _a, _b: None
 
-class CoreBackend():
+class CoreBackend(QObject):
+
+	# These events are triggered when a file is picked or when a preset is loaded.
+	# PickableImage listens for these to update visuals!
+	role_updated = Signal( ImageRole, str, QImage, name='RoleUpdated' )
+
 	albedo: Image|None = None
 	roughness: Image|None = None
 	metallic: Image|None = None
@@ -59,29 +66,35 @@ class CoreBackend():
 	scaleTarget: int = Preset.scaleTarget
 
 	def __init__(self) -> None:
-		pass
+		super().__init__()
+
+	def get_role_path(self, role: ImageRole) -> str:
+		return getattr(self, role+'Path')
+	
+	def get_role_image(self, role: ImageRole) -> Image:
+		return getattr(self, role)
+
+	def set_role_path(self, role: ImageRole, path: str):
+		setattr(self, role+'Path', path)
 
 	def load_preset(self, preset: Preset):
-		# All input change events should be fired,
-		# so we shouldn't need to do anything here.
-		pass
+		# Other properties are handled by widgets
+		for role in ImageRole:
+			self.set_role_image(preset.get_path_str(role), role)
 	
 	def save_preset(self, preset: Preset):
 		preset.game = self.game
 		preset.mode = self.mode
 		preset.normalType = self.normalType
 		preset.scaleTarget = self.scaleTarget
-		preset.set_path(ImageRole.Albedo, self.albedoPath)
-		preset.set_path(ImageRole.Roughness, self.roughnessPath)
-		preset.set_path(ImageRole.Metallic, self.metallicPath)
-		preset.set_path(ImageRole.Emit, self.emitPath)
-		preset.set_path(ImageRole.AO, self.aoPath)
-		preset.set_path(ImageRole.Normal, self.normalPath)
-		preset.set_path(ImageRole.Height, self.heightPath)
+		for role in ImageRole:
+			preset.set_path(role, self.get_role_path(role))
 
-	def convert(self, path: str, role: ImageRole) -> tuple[QImage, Image]:
+	def __load_image__(self, path: str) -> tuple[QImage, Image]:
+		''' Loads the specified path as an image, returning a (QImage, Image) tuple. '''
 		image: QImage = QImage()
 		converted: Image|None = None
+
 		if path.endswith('.vtf') or path.endswith('.hdr'):
 			converted = QtIOBackend.load(path)
 			image = image_to_qimage(converted)
@@ -89,29 +102,25 @@ class CoreBackend():
 			image = QtIOBackend.load_qimage(path)
 			converted = qimage_to_image(image)
 
-		match role:
-			case ImageRole.Albedo: self.albedo = converted
-			case ImageRole.Roughness: self.roughness = converted
-			case ImageRole.Metallic: self.metallic = converted
-			case ImageRole.Emit: self.emit = converted
-			case ImageRole.AO: self.ao = converted
-			case ImageRole.Normal: self.normal = converted
-			case ImageRole.Height: self.height = converted
-
-		# converted.convert(np.uint8).save('./TEST.vtf')
 		return (image, converted)
 
-	def pick(self, path: str|None, role: ImageRole) -> QImage|None:
-		# Update current path
-		self.__setattr__(role+'Path', path)
+	def set_role_image(self, path: str|None, role: ImageRole) -> tuple[QImage, Image] | tuple[None, None]:
+		''' Loads the specified path and sets the specified backend image. This method emits the image_updated signal! '''
+		conv: tuple[QImage, Image] | tuple[None, None] = (None, None)
 
 		if path:
-			# Cache image
-			return self.convert(path, role)[0]
+			# Load and cache image
+			conv = self.__load_image__(path)
+			setattr(self, role, conv[1])
 		else:
 			# Remove cached image
-			self.__setattr__(role, None)
-			return None
+			setattr(self, role, None)
+
+		# Update current path
+		setattr(self, role+'Path', path)
+
+		self.role_updated.emit(role, path, conv[0])
+		return conv
 
 	def pick_vmt(self, pathStr: str):
 		path = Path(pathStr)
@@ -131,12 +140,14 @@ class CoreBackend():
 	def make_material(self, noCache: bool=False):
 		''' Generate the material from the collected textures. '''
 
+		TIME_BEFORE = perf_counter()
+
 		def getImage(role: ImageRole) -> Image|None:
 			''' Helper function for re-fetching images when the cache is disabled. '''
 			if noCache:
 				rolePath = self.__getattribute__(role+'Path')
 				if rolePath == None: return None
-				return self.convert(rolePath, role)[1]
+				return self.set_role_image(rolePath, role)[1]
 			return self.__getattribute__(role)
 
 		albedo = getImage(ImageRole.Albedo)
@@ -151,17 +162,19 @@ class CoreBackend():
 		normal = getImage(ImageRole.Normal) or Image.blank(roughness.size, (0.5, 0.5, 1.0))
 		height = getImage(ImageRole.Height)
 
+		TIME_AFTER = perf_counter()
+		log.debug(f'(Re)loaded images in {round(TIME_AFTER - TIME_BEFORE, 4)}ms')
+
 		def to_pow2(x: float) -> int:
 			return pow(2, ceil(log2(int(x))))
 
-		
 		albedoWidth, albedoHeight = albedo.size
 		albedoMaxSize = max(albedoWidth, albedoHeight)
 		texScale      = (min(albedoMaxSize, self.scaleTarget) / albedoMaxSize) if self.scaleTarget else 1
 		texDims       = (to_pow2(albedoWidth * texScale), to_pow2(albedoHeight * texScale))
 		detailDims    = normal.size
 		detailDims    = (texDims[0]*2, texDims[1]*2) if (self.scaleTarget and texDims[0]*2 <= normal.size[0]) else (to_pow2(detailDims[0]), to_pow2(detailDims[1]))
-		
+
 		log.info(f'Determined size {texDims} for albedo and {detailDims} for details via scale target {self.scaleTarget}')
 
 		log.info('Constructing material...')
@@ -192,9 +205,14 @@ class CoreBackend():
 
 		callback('Processing textures...', 20)
 
+		TIME_BEFORE = perf_counter()
+		
 		textures = core_export(material)
 		textureVersion = GameTarget.vtf_version(material.target)
 		textureCount = len(textures)
+
+		TIME_AFTER = perf_counter()
+		log.debug(f'Processed textures in {round(TIME_AFTER - TIME_BEFORE, 4)}ms')
 
 		materialName = self.name.rsplit('/', 1)[-1]
 		vmtPath = self.path / (materialName + '.vmt')
@@ -207,7 +225,7 @@ class CoreBackend():
 			with open(vmtPath, 'w') as vmtFile:
 				vmtFile.write(vmt)
 		else:
-			log.info('Skipped generating VMT! (appconfig.toml: overwrite-vmts is False)')
+			log.info('Skipped generating VMT! (overwriteVmts is False)')
 
 		callback(f'Writing textures...', 60)
 
@@ -240,7 +258,6 @@ class CoreBackend():
 			
 			case HijackMode.NetCon:
 				sock = socket()
-
 				sock_err = sock.connect_ex(('localhost', config.hijackPort))
 				if sock_err != 0:
 					log.error(f'Failed to open socket! (errcode={sock_err})')

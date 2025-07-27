@@ -30,17 +30,16 @@ def get_root() -> Path:
 ''' Config structures '''
 
 class TargetRole(Enum):
-	Basecolor	= 'COLOR' # 0
-	Bumpmap		= 'BUMP' # 1
-	Emit		= 'EMIT' # 2
-	PhongExp	= 'PHONG' # 3
-	EnvmapMask	= 'ENVMASK' # 4
-	Mrao		= 'MRAO' # 5 # :3
+	Basecolor	= 'COLOR'	# 0
+	Bumpmap		= 'BUMP'	# 1
+	Emit		= 'EMIT'	# 2
+	PhongExp	= 'PHONG'	# 3
+	EnvmapMask	= 'ENVMASK'	# 4
+	Mrao		= 'MRAO'	# 5 # :3
 
 class TargetConfig(RecordClass):
 	postfix: str
 	lossy: bool
-	zip: bool
 	scale: float = 1
 	mipmaps: int = -1
 	flags: int = 0
@@ -78,12 +77,12 @@ class AppConfig(RecordClass):
 	compressThreshold: int = 8_000
 	''' The maximum size (kB) of the largest mipmap before lossless compression is enabled. (Strata-only) '''
 	targets: dict[TargetRole, TargetConfig] = {
-		TargetRole.Basecolor:	TargetConfig("_basecolor", True, False),
-		TargetRole.Bumpmap:		TargetConfig("_bump", False, True),
-		TargetRole.Emit:		TargetConfig("_emit", False, False),
-		TargetRole.PhongExp:	TargetConfig("_phongexp", False, False),
-		TargetRole.EnvmapMask:	TargetConfig("_envmask", False, False),
-		TargetRole.Mrao:		TargetConfig("_mrao", False, True)
+		TargetRole.Basecolor:	TargetConfig("_basecolor", True),
+		TargetRole.Bumpmap:		TargetConfig("_bump", False),
+		TargetRole.Emit:		TargetConfig("_emit", False),
+		TargetRole.PhongExp:	TargetConfig("_phongexp", False),
+		TargetRole.EnvmapMask:	TargetConfig("_envmask", False),
+		TargetRole.Mrao:		TargetConfig("_mrao", False)
 	}
 
 	def encode(self):
