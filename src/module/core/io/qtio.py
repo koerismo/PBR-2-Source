@@ -51,7 +51,7 @@ def qimage_to_image(qimage: QImage) -> Image:
 			qimage = qimage.convertToFormat(QImage.Format.Format_RGBA16FPx4)
 
 	ptr = qimage.constBits()
-	assert ptr, 'Failed to get QImage data handle!'
+	assert ptr != None, 'Failed to get QImage data handle. This might mean that the file could not be accessed!'
 
 	data = np.frombuffer(ptr, dtype=dtype).copy().reshape(qimage.height(), qimage.width(), channels)
 	return Image(data)
@@ -76,7 +76,7 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True) -> None:
+	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1) -> None:
 		height, width, bands = image.data.shape
 
 		path = Path(path)
@@ -87,14 +87,13 @@ class QtIOBackend(IOBackend):
 		target_format = None
 		is_strata = version == 6
 
-		max_value = 255
-		flags = 0
 		match (bands, image.data.dtype):
 			case (1, 'uint8'):
 				format = ImageFormats.I8
 			case (3, 'uint8'):
 				format = ImageFormats.RGB888
 				if lossy: target_format = ImageFormats.DXT1
+				elif is_strata: target_format = ImageFormats.RGBA8888 # TODO: Expand this to any DX11 game
 			case (4, 'uint8'):
 				format = ImageFormats.RGBA8888
 				if lossy: target_format = ImageFormats.BC7 if is_strata else ImageFormats.DXT5
@@ -113,7 +112,11 @@ class QtIOBackend(IOBackend):
 		vtf = vtfpp.VTF()
 		vtf.set_image(image.data.tobytes('C'), format, width, height, vtfpp.ImageConversion.ResizeFilter.KAISER)
 		vtf.version = version
+		vtf.flags = flags
 		vtf.set_format(target_format)
+
+		if mipmaps != -1:
+			vtf.mip_count = mipmaps
 
 		if is_strata and zip:
 			vtf.compression_level = -1

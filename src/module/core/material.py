@@ -70,7 +70,6 @@ class Material:
 	mode: MaterialMode
 	target: GameTarget
 	size: tuple[int, int]
-	detailSize: tuple[int, int]
 	name: str
 
 	albedo: Image			# Linear RGBAf
@@ -88,7 +87,6 @@ class Material:
 			mode: MaterialMode,
 			target: GameTarget,
 			size: tuple[int, int],
-			detailSize: tuple[int, int],
 			name: str,
 
 			albedo: Image,
@@ -104,7 +102,6 @@ class Material:
 		self.mode = mode
 		self.target = target
 		self.size = size
-		self.detailSize = detailSize
 		self.name = name
 
 		self.albedo = albedo

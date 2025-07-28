@@ -4,6 +4,7 @@ from .material import MaterialMode, GameTarget, NormalType
 
 class Preset():
 	paths: dict[str, Path]
+	name: str | None = None
 	game: GameTarget = GameTarget.V2011
 	mode: MaterialMode = MaterialMode.PBRModel
 	normalType: NormalType = NormalType.DX
@@ -19,22 +20,23 @@ class Preset():
 		preset = Preset()
 	
 		with open(path, 'r') as file:
-			rawDict = json.load(file)
+			rawDict: dict = json.load(file)
 			pathDict = rawDict['paths']
 
-			game: GameTarget
+			if name := rawDict.get('name', None):
+				preset.name = name
+
 			if isinstance(game := rawDict.get('game', None), int):
-				preset.game = game
-			
-			mode: MaterialMode
+				preset.game = GameTarget(game)
+
 			if isinstance(mode := rawDict.get('mode', None), int):
-				preset.mode = mode
-			
-			normalType: NormalType
+				preset.mode = MaterialMode(mode)
+
+			normalType: NormalType | None
 			if isinstance(normalType := rawDict.get('normalType', None), int):
-				preset.normalType = normalType
-			
-			scaleTarget: int
+				preset.normalType = NormalType(normalType)
+
+			scaleTarget: int | None
 			if isinstance(scaleTarget := rawDict.get('scaleTarget', None), int):
 				preset.scaleTarget = scaleTarget
 
@@ -75,6 +77,7 @@ class Preset():
 				outPaths[key] = str(value)
 			
 			json.dump({
+				'name': self.name,
 				'game': self.game,
 				'mode': self.mode,
 				'normalType': self.normalType,

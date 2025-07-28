@@ -432,7 +432,7 @@ class MainWindow( QMainWindow ):
 	#region Exporting
 
 	@Slot()
-	def export(self, noCache=True):
+	def export(self, *, noCache=True):
 		if self.exporting: return
 		self.exporting = True
 
@@ -450,7 +450,7 @@ class MainWindow( QMainWindow ):
 
 		try:
 			self.progressBar.setFormat('Creating material...')
-			material = self.backend.make_material(noCache)
+			material = self.backend.make_material(noCache=noCache)
 			self.progressBar.setValue(20)
 
 			if self.target == None: self.pick_target()
@@ -547,7 +547,7 @@ class MainWindow( QMainWindow ):
 		assert self.watching, 'on_file_changed handler not detatched. Tell a programmer!'
 		if not self.watcherTimeout.isActive():
 			log.info(f'Files changed! Starting timeout...')
-		self.watcherTimeout.start(500)
+		self.watcherTimeout.start(self.config.watchTimeout)
 
 	#endregion
 	#region Presets

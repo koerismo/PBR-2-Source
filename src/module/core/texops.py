@@ -69,7 +69,7 @@ def make_phong_mask(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	mask = mat.roughness.copy().invert().pow(4).mult(1.3)
+	mask = mat.roughness.copy().invert().pow(3).mult(1.1)
 	if mat.ao: mask.mult(mat.ao)
 
 	return mask
@@ -176,7 +176,7 @@ def make_bumpmap(mat: Material) -> Image:
 def make_mrao(mat: Material) -> Image:
 	''' Generates a RGB MRAO texture. '''
 
-	ao = mat.ao or Image.blank(mat.detailSize, color=(1,))
+	ao = mat.ao or Image.blank(mat.size, color=(1,))
 	return Image.merge((mat.metallic, mat.roughness, ao))
 
 

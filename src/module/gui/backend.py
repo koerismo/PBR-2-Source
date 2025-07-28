@@ -37,8 +37,7 @@ CALLBACK_NONE = lambda _a, _b: None
 
 class CoreBackend(QObject):
 
-	# These events are triggered when a file is picked or when a preset is loaded.
-	# PickableImage listens for these to update visuals!
+	# This event is triggered when a file is picked or when a preset is loaded.
 	role_updated = Signal( ImageRole, str, QImage, name='RoleUpdated' )
 
 	albedo: Image|None = None
@@ -58,7 +57,6 @@ class CoreBackend(QObject):
 	heightPath: str|None = None
 
 	path: Path|None = None
-	# envmap: str = 'env_cubemap'
 	name: str = 'ThisShouldNeverAppear'
 	game: GameTarget = Preset.game
 	mode: MaterialMode = Preset.mode
@@ -83,6 +81,7 @@ class CoreBackend(QObject):
 			self.set_role_image(preset.get_path_str(role), role)
 	
 	def save_preset(self, preset: Preset):
+		preset.name = self.name
 		preset.game = self.game
 		preset.mode = self.mode
 		preset.normalType = self.normalType
@@ -137,7 +136,7 @@ class CoreBackend(QObject):
 
 		self.name = namePath+name if useNamePath else name
 
-	def make_material(self, noCache: bool=False):
+	def make_material(self, *, noCache: bool=False):
 		''' Generate the material from the collected textures. '''
 
 		TIME_BEFORE = perf_counter()
@@ -163,7 +162,7 @@ class CoreBackend(QObject):
 		height = getImage(ImageRole.Height)
 
 		TIME_AFTER = perf_counter()
-		log.debug(f'(Re)loaded images in {round(TIME_AFTER - TIME_BEFORE, 4)}ms')
+		log.debug(f'(Re)loaded images in {round(TIME_AFTER - TIME_BEFORE, 4)}ms (noCache={noCache})')
 
 		def to_pow2(x: float) -> int:
 			return pow(2, ceil(log2(int(x))))
@@ -172,10 +171,8 @@ class CoreBackend(QObject):
 		albedoMaxSize = max(albedoWidth, albedoHeight)
 		texScale      = (min(albedoMaxSize, self.scaleTarget) / albedoMaxSize) if self.scaleTarget else 1
 		texDims       = (to_pow2(albedoWidth * texScale), to_pow2(albedoHeight * texScale))
-		detailDims    = normal.size
-		detailDims    = (texDims[0]*2, texDims[1]*2) if (self.scaleTarget and texDims[0]*2 <= normal.size[0]) else (to_pow2(detailDims[0]), to_pow2(detailDims[1]))
-
-		log.info(f'Determined size {texDims} for albedo and {detailDims} for details via scale target {self.scaleTarget}')
+	
+		log.info(f'Determined size {texDims} via scale target {self.scaleTarget}')
 
 		log.info('Constructing material...')
 
@@ -183,15 +180,14 @@ class CoreBackend(QObject):
 			self.mode,
 			self.game,
 			texDims,
-			detailDims,
 			self.name,
-			albedo=texops.normalize(albedo, detailDims, mode='RGBA'),
-			roughness=texops.normalize(roughness, detailDims, mode='L'),
-			metallic=texops.normalize(metallic, detailDims, mode='L'),
-			emit=texops.normalize(emit, detailDims, noAlpha=True) if emit else None,
-			ao=texops.normalize(ao, detailDims, mode='L') if ao else None,
-			normal=texops.normalize(normal, detailDims, mode='RGB'),
-			height=texops.normalize(height, detailDims, mode='L') if height else None,
+			albedo=texops.normalize(albedo, texDims, mode='RGBA'),
+			roughness=texops.normalize(roughness, texDims, mode='L'),
+			metallic=texops.normalize(metallic, texDims, mode='L'),
+			emit=texops.normalize(emit, texDims, noAlpha=True) if emit else None,
+			ao=texops.normalize(ao, texDims, mode='L') if ao else None,
+			normal=texops.normalize(normal, texDims, mode='RGB'),
+			height=texops.normalize(height, texDims, mode='L') if height else None,
 			normalType=self.normalType
 		)
 
@@ -232,7 +228,14 @@ class CoreBackend(QObject):
 		for i, texture in enumerate(textures):
 			textureConfig = appConfig.targets[texture.role]
 			fullPath = self.path / (materialName + textureConfig.postfix + '.vtf')
-			texture.image.save(fullPath, version=textureVersion, lossy=textureConfig.lossy)
+			texture.image.save(
+				fullPath,
+				version=textureVersion,
+				lossy=textureConfig.lossy,
+				zip=textureConfig.zip,
+				flags=textureConfig.flags,
+				mipmaps=textureConfig.mipmaps,
+			)
 			callback(f'Writing textures... [{i+1}/{textureCount}]', 60 + int((i+1) / textureCount * 40))
 
 		if shouldWriteVmt:

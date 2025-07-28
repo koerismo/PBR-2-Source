@@ -12,7 +12,7 @@ class IOBackend():
 
 	@staticmethod
 	@abstractmethod
-	def save(image: 'Image', path: str|Path, version: int=5, lossy: bool=True) -> bool:
+	def save(image: 'Image', path: str|Path, **kwargs) -> bool:
 		...
 
 	@staticmethod
@@ -155,9 +155,9 @@ class Image():
 		if self.data.dtype == format: return self.data.tobytes('C')
 		return self.data.astype(format).tobytes('C')
 
-	def save(self, path: str|Path, version: int=5, lossy: bool=True) -> bool:
+	def save(self, path: str|Path, **kwargs) -> bool:
 		''' Saves this image to a file. Useful for debug. '''
-		return Image.backend.save(self, path, version, lossy=lossy)
+		return Image.backend.save(self, path, **kwargs)
 
 	def copy(self) -> "Image":
 		''' Clones this image. '''

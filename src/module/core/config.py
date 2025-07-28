@@ -40,7 +40,8 @@ class TargetRole(Enum):
 class TargetConfig(RecordClass):
 	postfix: str
 	lossy: bool
-	scale: float = 1
+	zip: bool = False
+	scale: float = 1.0
 	mipmaps: int = -1
 	flags: int = 0
 
@@ -74,8 +75,8 @@ class AppConfig(RecordClass):
 	''' The game `-netconport` port. Used when hijack mode is set to NetCon. '''
 	overwriteVmts: bool = False
 	''' If true, always writes to the VMT, even if one already exists. '''
-	compressThreshold: int = 8_000
-	''' The maximum size (kB) of the largest mipmap before lossless compression is enabled. (Strata-only) '''
+	watchTimeout: int = 500
+	''' The timeout (milliseconds) to use when listening for input changes before initiating an export. '''
 	targets: dict[TargetRole, TargetConfig] = {
 		TargetRole.Basecolor:	TargetConfig("_basecolor", True),
 		TargetRole.Bumpmap:		TargetConfig("_bump", False),
