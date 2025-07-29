@@ -78,12 +78,12 @@ class AppConfig(RecordClass):
 	watchTimeout: int = 500
 	''' The timeout (milliseconds) to use when listening for input changes before initiating an export. '''
 	targets: dict[TargetRole, TargetConfig] = {
-		TargetRole.Basecolor:	TargetConfig("_basecolor", True),
-		TargetRole.Bumpmap:		TargetConfig("_bump", False),
-		TargetRole.Emit:		TargetConfig("_emit", False),
-		TargetRole.PhongExp:	TargetConfig("_phongexp", False),
-		TargetRole.EnvmapMask:	TargetConfig("_envmask", False),
-		TargetRole.Mrao:		TargetConfig("_mrao", False)
+		TargetRole.Basecolor:	TargetConfig("_basecolor.vtf", True),
+		TargetRole.Bumpmap:		TargetConfig("_bump.vtf", False),
+		TargetRole.Emit:		TargetConfig("_emit.vtf", False),
+		TargetRole.PhongExp:	TargetConfig("_phongexp.vtf", False),
+		TargetRole.EnvmapMask:	TargetConfig("_envmask.vtf", False),
+		TargetRole.Mrao:		TargetConfig("_mrao.vtf", False)
 	}
 
 	def encode(self):

@@ -81,7 +81,8 @@ class QtIOBackend(IOBackend):
 
 		path = Path(path)
 		if path.suffix !='.vtf':
-			raise NotImplementedError(f'Failed to save {path.name} . Use imageio backend for non-vtf output!')
+			assert image_to_qimage(image).save(str(path)), f'Failed to export image "{path}"!'
+			return
 
 		format = None
 		target_format = None

@@ -1,7 +1,6 @@
 def init():
 	from .core.io.qtio import QtIOBackend
 	from .core.io.image import Image
-	from .core.config import load_config
 	from . import gui
 	
 	from logging import DEBUG, basicConfig, FileHandler, root
@@ -18,7 +17,5 @@ def init():
 		from .core.config import root_path
 		root.addHandler(FileHandler(root_path / args.logfile))
 
-	load_config(True, pathOverride=args.config)
-
 	Image.set_backend(QtIOBackend)
-	gui.start_gui()
+	gui.start_gui(args)

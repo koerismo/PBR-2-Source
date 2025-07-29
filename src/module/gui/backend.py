@@ -57,7 +57,7 @@ class CoreBackend(QObject):
 	heightPath: str|None = None
 
 	path: Path|None = None
-	name: str = 'ThisShouldNeverAppear'
+	name: str|None = None
 	game: GameTarget = Preset.game
 	mode: MaterialMode = Preset.mode
 	normalType: NormalType = Preset.normalType
@@ -180,7 +180,6 @@ class CoreBackend(QObject):
 			self.mode,
 			self.game,
 			texDims,
-			self.name,
 			albedo=texops.normalize(albedo, texDims, mode='RGBA'),
 			roughness=texops.normalize(roughness, texDims, mode='L'),
 			metallic=texops.normalize(metallic, texDims, mode='L'),
@@ -197,6 +196,7 @@ class CoreBackend(QObject):
 		appConfig = get_config()
 
 		# TODO: This is kinda dumb
+		assert self.name, 'Backend does not have name set. Tag a programmer!'
 		material.name = self.name
 
 		callback('Processing textures...', 20)
@@ -227,7 +227,7 @@ class CoreBackend(QObject):
 
 		for i, texture in enumerate(textures):
 			textureConfig = appConfig.targets[texture.role]
-			fullPath = self.path / (materialName + textureConfig.postfix + '.vtf')
+			fullPath = self.path / (materialName + textureConfig.postfix)
 			texture.image.save(
 				fullPath,
 				version=textureVersion,

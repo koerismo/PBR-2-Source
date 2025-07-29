@@ -1,6 +1,6 @@
 from ..version import __version__
 import logging as log
-from ..core.config import AppConfig, AppTheme, get_root, get_config
+from ..core.config import AppConfig, AppTheme, get_root, load_config
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
 from ..core.preset import Preset
@@ -192,6 +192,10 @@ class MainWindow( QMainWindow ):
 	config: AppConfig
 	backend: CoreBackend
 	progressBar: QProgressBar
+
+	lastPresetPath: str|None = None
+	lastMaterialsPath: str|None = None
+	recentPresets: list[str]
 
 	def __init__(self, config: AppConfig, parent=None) -> None:
 		#region init
@@ -420,9 +424,16 @@ class MainWindow( QMainWindow ):
 			return
 
 		log.debug('Picking target')
-		options: Any = {'options': QFileDialog.Option.DontConfirmOverwrite } if not self.config.overwriteVmts else {}
-		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', **options)[0]
-		if len(targetPath): self.target = targetPath
+		targetPath = QFileDialog.getSaveFileName(self,
+										caption='Saving material...',
+										filter='Valve Material (*.vmt)',
+										options=(QFileDialog.Option.DontConfirmOverwrite if self.config.overwriteVmts else 0), # type: ignore
+										dir=self.lastMaterialsPath, # type: ignore
+										)[0]
+
+		if len(targetPath):
+			self.lastMaterialsPath = str(Path(targetPath).parent)
+			self.target = targetPath
 
 		if self.target:
 			self.revealButton.setDisabled(False)
@@ -554,39 +565,52 @@ class MainWindow( QMainWindow ):
 
 	@Slot()
 	def load_preset(self):
-		selected = QFileDialog.getOpenFileName(self, caption='Loading preset...', filter='JSON Presets (*.json)')[0]
-		if not len(selected): return
+		path = QFileDialog.getOpenFileName(self,
+									caption='Loading preset...',
+									filter='JSON Presets (*.json)',
+									dir=self.lastPresetPath, # type: ignore
+									)[0]
+		if not len(path): return
 
 		# Reset target path
 		if self.watching: self.stop_watch()
 		self.pick_target(reset=True)
 
-		preset = Preset.load(selected)
+		preset = Preset.load(path)
+
 		self.gameDropdown.setCurrentData(preset.game)
 		self.modeDropdown.setCurrentData(preset.mode)
 		self.normalTypeDropdown.setCurrentData(preset.normalType)
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
-		# self.hintDropdown.setCurrentData(preset.hint)
-		# self.envmapDropdown.setCurrentData(preset.envmap)
+
+		# Keep track of last preset path
+		self.lastPresetPath = str(Path(path).parent)
 
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
 	
 	def save_preset(self):
-		selected = QFileDialog.getSaveFileName(self, caption='Saving preset...', filter='JSON Presets (*.json)')[0]
-		if not len(selected): return
+		path = QFileDialog.getSaveFileName(self,
+									caption='Saving preset...',
+									filter='JSON Presets (*.json)',
+									dir=self.lastPresetPath, # type: ignore
+									)[0]
+		if not len(path): return
+
+		# Keep track of last preset path
+		self.lastPresetPath = str(Path(path).parent)
 		
 		preset = Preset()
 		self.backend.save_preset(preset)
-		preset.save(selected)
+		preset.save(path)
 
 	#endregion
 
 
-def start_gui():
+def start_gui(args):
 	app: QApplication = QApplication()
-	app.setApplicationVersion(__version__)	
-	app_config = get_config()
+	app.setApplicationVersion(__version__)
+	app_config = load_config(True, pathOverride=args.config)
 
 	match app_config.appTheme:
 		case AppTheme.Default:
@@ -619,8 +643,5 @@ def start_gui():
 
 	win = MainWindow( app_config )
 	win.show()
-	
-	app.exec()
 
-if __name__ == '__main__':
-	start_gui()
+	app.exec()
