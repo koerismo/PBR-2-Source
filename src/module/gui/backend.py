@@ -40,21 +40,8 @@ class CoreBackend(QObject):
 	# This event is triggered when a file is picked or when a preset is loaded.
 	role_updated = Signal( ImageRole, str, QImage, name='RoleUpdated' )
 
-	albedo: Image|None = None
-	roughness: Image|None = None
-	metallic: Image|None = None
-	emit: Image|None = None
-	ao: Image|None = None
-	normal: Image|None = None
-	height: Image|None = None
-
-	albedoPath: str|None = None
-	roughnessPath: str|None = None
-	metallicPath: str|None = None
-	emitPath: str|None = None
-	aoPath: str|None = None
-	normalPath: str|None = None
-	heightPath: str|None = None
+	images: dict[ImageRole, Image|None] = {}
+	paths: dict[ImageRole, str|None] = {}
 
 	path: Path|None = None
 	name: str|None = None
@@ -66,17 +53,22 @@ class CoreBackend(QObject):
 	def __init__(self) -> None:
 		super().__init__()
 
-	def get_role_path(self, role: ImageRole) -> str:
-		return getattr(self, role+'Path')
+	def get_role_path(self, role: ImageRole) -> str | None:
+		return self.paths.get(role, None)
 	
-	def get_role_image(self, role: ImageRole) -> Image:
-		return getattr(self, role)
+	def get_role_image(self, role: ImageRole) -> Image | None:
+		return self.images.get(role, None)
 
-	def set_role_path(self, role: ImageRole, path: str):
-		setattr(self, role+'Path', path)
+	def set_role_path(self, role: ImageRole, path: str | None):
+		self.paths[role] = path
 
 	def load_preset(self, preset: Preset):
 		# Other properties are handled by widgets
+		self.name = preset.name
+		assert self.game == preset.game
+		assert self.mode == preset.mode
+		assert self.normalType == preset.normalType
+		assert self.scaleTarget == preset.scaleTarget
 		for role in ImageRole:
 			self.set_role_image(preset.get_path_str(role), role)
 	
@@ -110,13 +102,13 @@ class CoreBackend(QObject):
 		if path:
 			# Load and cache image
 			conv = self.__load_image__(path)
-			setattr(self, role, conv[1])
+			self.images[role] = conv[1]
 		else:
 			# Remove cached image
-			setattr(self, role, None)
+			self.images[role] = None
 
 		# Update current path
-		setattr(self, role+'Path', path)
+		self.set_role_path(role, path)
 
 		self.role_updated.emit(role, path, conv[0])
 		return conv
@@ -144,10 +136,10 @@ class CoreBackend(QObject):
 		def getImage(role: ImageRole) -> Image|None:
 			''' Helper function for re-fetching images when the cache is disabled. '''
 			if noCache:
-				rolePath = self.__getattribute__(role+'Path')
+				rolePath = self.get_role_path(role)
 				if rolePath == None: return None
 				return self.set_role_image(rolePath, role)[1]
-			return self.__getattribute__(role)
+			return self.get_role_image(role)
 
 		albedo = getImage(ImageRole.Albedo)
 		assert albedo != None, 'A basetexture is required to convert the material!'

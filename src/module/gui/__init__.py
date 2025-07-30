@@ -196,7 +196,7 @@ class MainWindow( QMainWindow ):
 	loadRecentMapper: QSignalMapper
 
 	lastPresetPath: str|None = None
-	lastMaterialsPath: str|None = None
+	lastTargetPath: str|None = None
 	cache: AppCache
 
 	def __init__(self, config: AppConfig, parent=None) -> None:
@@ -437,14 +437,18 @@ class MainWindow( QMainWindow ):
 		pickOptions = {}
 		if self.config.overwriteVmts == False:
 			pickOptions['options'] = QFileDialog.Option.DontConfirmOverwrite
-		if self.lastMaterialsPath != None:
-			pickOptions['dir'] = self.lastMaterialsPath
+	
+		# Initial filename to save to
+		pickPath = Path(self.lastTargetPath or self.lastPresetPath or '')
+		if self.backend.name:
+			pickPath = pickPath.with_name(self.backend.name.rsplit('/', 2)[-1] + pickPath.suffix)
 
-		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', **pickOptions)[0]
+		targetPath, _ = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', dir=str(pickPath), **pickOptions)
 
 		if len(targetPath):
-			self.lastMaterialsPath = str(Path(targetPath).parent)
+			self.lastTargetPath = targetPath
 			self.target = targetPath
+			self.backend.pick_vmt(targetPath)
 
 		if self.target:
 			self.revealButton.setDisabled(False)
@@ -477,8 +481,6 @@ class MainWindow( QMainWindow ):
 
 			if self.target == None: self.pick_target()
 			if self.target == None: raise InterruptedError()
-			
-			targetPath: str = self.target
 
 			def log_callback(msg: str|None, percent: int|None):
 				log.info(f'Export ({self.progressBar.value()}%): {msg}')
@@ -486,7 +488,6 @@ class MainWindow( QMainWindow ):
 				if percent: self.progressBar.setValue(percent)
 				QApplication.processEvents()
 
-			self.backend.pick_vmt(targetPath)
 			self.backend.export(material, log_callback, overwrite_vmt=overwriteVmts)
 			self.progressBar.setValue(100)
 
@@ -537,15 +538,7 @@ class MainWindow( QMainWindow ):
 	def start_watch(self):
 		self.watching = True
 		self.watchAction.setChecked(True)
-		paths = [x for x in [
-			self.backend.albedoPath,
-			self.backend.roughnessPath,
-			self.backend.metallicPath,
-			self.backend.emitPath,
-			self.backend.aoPath,
-			self.backend.normalPath,
-			self.backend.heightPath,
-		] if x != None]
+		paths = [x for x in self.backend.paths.values() if x != None]
 		self.watcher.addPaths(paths)
 		self.setWindowTitle()
 
@@ -605,7 +598,7 @@ class MainWindow( QMainWindow ):
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
 
 		# Keep track of last preset path
-		self.lastPresetPath = str(Path(path).parent)
+		self.lastPresetPath = path
 
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
@@ -614,19 +607,19 @@ class MainWindow( QMainWindow ):
 		self.pushRecentFile(path)
 	
 	def save_preset(self):
-		path = QFileDialog.getSaveFileName(self,
+		presetPath, _ = QFileDialog.getSaveFileName(self,
 									caption='Saving preset...',
 									filter='JSON Presets (*.json)',
 									dir=self.lastPresetPath, # type: ignore
-									)[0]
-		if not len(path): return
+									)
+		if not len(presetPath): return
 
 		# Keep track of last preset path
-		self.lastPresetPath = str(Path(path).parent)
+		self.lastPresetPath = presetPath
 		
 		preset = Preset()
 		self.backend.save_preset(preset)
-		preset.save(path)
+		preset.save(presetPath)
 
 	#endregion
 	#region Recents
