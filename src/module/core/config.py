@@ -184,7 +184,7 @@ def load_cache() -> AppCache:
 		log.info('Using fresh cache...')
 		return AppCache()
 	
-	except json.JSONDecodeError as e:
+	except (TypeError, json.JSONDecodeError) as e:
 		log.error(f'Failed to parse cache! Falling back to fresh cache.\n{format_exc()}')
 		return AppCache()
 
