@@ -434,7 +434,7 @@ class MainWindow( QMainWindow ):
 		log.debug('Picking target')
 
 		pickOptions = {}
-		if self.config.overwriteVmts:
+		if self.config.overwriteVmts == False:
 			pickOptions['options'] = QFileDialog.Option.DontConfirmOverwrite
 		if self.lastMaterialsPath != None:
 			pickOptions['dir'] = self.lastMaterialsPath
