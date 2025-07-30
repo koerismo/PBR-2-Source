@@ -242,6 +242,7 @@ class MainWindow( QMainWindow ):
 		fileMenu.addSeparator()
 
 		self.watchAction = fileMenu.addAction('Watch')
+		self.watchAction.setCheckable(True)
 		self.watchAction.triggered.connect(self.watch_toggle)
 
 		exportAction = fileMenu.addAction('Export')
@@ -525,6 +526,7 @@ class MainWindow( QMainWindow ):
 	@Slot()
 	def watch_toggle(self):
 		if not self.watching and self.target == None:
+			self.watchAction.setChecked(False)
 			self.pick_target()
 			if not self.target: return
 
@@ -534,7 +536,7 @@ class MainWindow( QMainWindow ):
 
 	def start_watch(self):
 		self.watching = True
-		self.watchAction.setText('Stop Watching')
+		self.watchAction.setChecked(True)
 		paths = [x for x in [
 			self.backend.albedoPath,
 			self.backend.roughnessPath,
@@ -549,7 +551,7 @@ class MainWindow( QMainWindow ):
 
 	def stop_watch(self):
 		self.watching = False
-		self.watchAction.setText('Watch')
+		self.watchAction.setChecked(False)
 		self.watcher.removePaths(self.watcher.files())
 		self.setWindowTitle()
 
