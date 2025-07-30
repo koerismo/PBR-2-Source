@@ -3,6 +3,14 @@ from .config import TargetRole
 from . import texops
 
 def export(src: Material) -> list[Texture]:
+
+	# config = get_config()
+	# def apply_scale(img: Image, role: TargetRole) -> Image:
+	# 	scale = config.targets[role].scale
+	# 	if scale == 1 or scale <= 0: return img
+	# 	w, h = img.size
+	# 	return img.resize((int(w * scale), int(h * scale)))
+
 	textures = []
 	basecolor = texops.make_basecolor(src)
 	basecolor = basecolor.resize(src.size)

@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 	QGroupBox, QProgressBar, QPushButton, QComboBox
 )
 
-# from .settings import SettingsWindow
+# from .settings import TextureSettingsWindow
 
 # FONT_MONO = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
 
@@ -528,13 +528,12 @@ class MainWindow( QMainWindow ):
 			self.pick_target()
 			if not self.target: return
 
-		self.watching = not self.watching
-		if self.watching:	self.start_watch()
-		else:				self.stop_watch()
+		if self.watching:	self.stop_watch()
+		else:				self.start_watch()
 		log.info(f'Watching {len(self.watcher.files())} files.\n')
-		self.setWindowTitle()
 
 	def start_watch(self):
+		self.watching = True
 		self.watchAction.setText('Stop Watching')
 		paths = [x for x in [
 			self.backend.albedoPath,
@@ -546,10 +545,13 @@ class MainWindow( QMainWindow ):
 			self.backend.heightPath,
 		] if x != None]
 		self.watcher.addPaths(paths)
+		self.setWindowTitle()
 
 	def stop_watch(self):
+		self.watching = False
 		self.watchAction.setText('Watch')
 		self.watcher.removePaths(self.watcher.files())
+		self.setWindowTitle()
 
 	def reset_watch(self):
 		if not self.watching: return
@@ -719,7 +721,7 @@ def start_gui(args):
 	app_icon.loadFromData(app_icon_file)
 	app.setWindowIcon(app_icon)
 
-	# settings = SettingsWindow()
+	# settings = TextureSettingsWindow()
 	# settings.show()
 
 	win = MainWindow( app_config )

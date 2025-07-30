@@ -235,6 +235,7 @@ class CoreBackend(QObject):
 				zip=textureConfig.zip,
 				flags=textureConfig.flags,
 				mipmaps=textureConfig.mipmaps,
+				mipmapFilter=textureConfig.mipmapFilter
 			)
 			callback(f'Writing textures... [{i+1}/{textureCount}]', 60 + int((i+1) / textureCount * 40))
 

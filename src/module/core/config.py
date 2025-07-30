@@ -1,11 +1,11 @@
 from enum import IntEnum, Enum
 from traceback import format_exc
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, replace
 
-from io import SEEK_SET
 from pathlib import Path
 import logging as log
 import sys, json
+from sourcepp import vtfpp
 
 from ..version import __version__
 
@@ -44,15 +44,16 @@ class TargetConfig():
 	postfix: str
 	lossy: bool
 	zip: bool = False
-	scale: float = 1.0
 	mipmaps: int = -1
+	mipmapFilter: int = vtfpp.ImageConversion.ResizeFilter.KAISER.value
 	flags: int = 0
+	# scale: float = 1.0
 
 	def encode(self):
 		return asdict(self)
 
-	def copy(self):
-		return TargetConfig(**asdict(self))
+	def clone(self):
+		return replace(self)
 
 	@staticmethod
 	def decode(data) -> 'TargetConfig':
@@ -106,10 +107,10 @@ class AppConfig():
 
 		return appConfig
 
-	def copy(self):
+	def clone(self):
 		return AppConfig(**{
 			**asdict(self),
-			"targets": { k: v.copy() for k, v in self.targets.items() }
+			"targets": { k: v.clone() for k, v in self.targets.items() }
 		})
 
 def load_config(gui=True, pathOverride: str|None=None) -> AppConfig:

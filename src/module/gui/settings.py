@@ -1,158 +1,178 @@
-from typing import Any
-from PySide6.QtWidgets import QWidget, QGridLayout, QLineEdit, QLabel, QVBoxLayout, QGroupBox, QCheckBox
-from PySide6.QtCore import QAbstractTableModel, QEvent, QModelIndex, Qt, QModelIndex
+from typing import Any, Literal
+from enum import IntEnum
+from PySide6.QtWidgets import QWidget, QGridLayout, QLineEdit, QLabel, QVBoxLayout, QGroupBox, QCheckBox, QComboBox
+from PySide6.QtCore import Qt, Slot, QSignalMapper
 from PySide6.QtGui import QIntValidator, QDoubleValidator
 from ..core.config import AppConfig, TargetRole, TargetConfig, get_config
+from ..core.enums import ImageFlags
 
-TEX_COLUMNS = [
-	'Texture',
-	'Postfix',
-	'Lossy',
-	'Zip',
-	'Scale',
-	'Mipmaps'
-]
+from sourcepp import vtfpp
 
-""" 
-class TextureSettingsTableModel(QAbstractTableModel):
-	def __init__(self, conf: dict[TextureRole, TextureConfig]):
-		super().__init__()
-		self.conf = conf
-		self.confKeys = [k for k, v in self.conf.items()]
-		
-	# def data(self)
-
-	def rowCount(self, parent: QModelIndex) -> int:
-		return len(self.confKeys)
-	
-	def columnCount(self, parent: QModelIndex) -> int:
-		return len(TEX_COLUMNS)
-	
-	def headerData(self, section: int, orientation: Qt.Orientation, role: int=-1) -> Any:
-		match role:
-			case Qt.ItemDataRole.DisplayRole:
-				if orientation == Qt.Orientation.Horizontal:
-					return TEX_COLUMNS[section]
-				else:
-					return section
-			case _:
-				return super().headerData(section, orientation, role)
-	
-	def data(self, section: QModelIndex, role: int=-1) -> Any:
-		col = section.column()
-		row = section.row()
-
-		match role:
-			case Qt.ItemDataRole.EditRole:
-				if col == 0: return None
-				return "d-"+str(section.column())
-			case Qt.ItemDataRole.DisplayRole:
-				if col == 0: return TextureRole(row).name
-				return "d-"+str(section.column())
-			case Qt.ItemDataRole.TextAlignmentRole:
-				if col == 0: return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-				return None
-			case _:
-				return None
-"""
-
-class QBoundLineEdit(QLineEdit):
-	def __init__(self, obj, key: str, t: str):
+class BoundEdit():
+	def __init__(self, obj: Any, key: str) -> None:
 		super().__init__()
 		self.obj = obj
 		self.key = key
-		self.keyType = type(getattr(obj, key))
+	
+	def getValue(self):
+		return getattr(self.obj, self.key)
+	
+	def setValue(self, v: Any):
+		setattr(self.obj, self.key, v)
+	
+	def bind(self, obj: Any):
+		self.obj = obj
+		self.fromValue(self.getValue())
+
+	def fromValue(self, value: Any):
+		...
+
+class QBoundLineEdit(BoundEdit, QLineEdit):
+	def __init__(self, obj, key: str, t: Literal['int'] | Literal['float'] | None):
+		super().__init__(obj, key)
+		self.type = type(self.getValue())
 
 		match t:
 			case 'int':
 				self.setValidator(QIntValidator())
-				self.keyType = int
+				self.type = int
 			case 'float':
 				self.setValidator(QDoubleValidator())
-				self.keyType = float
+				self.type = float
 			case _:
-				self.keyType = str
+				self.type = str
 
-		self.reset()
-		self.editingFinished.connect(self.__valueChanged__)
+		self.fromValue(self.getValue())
+		self.editingFinished.connect(self.__onEdited__)
 
-	def reset(self):
-		value = self.keyType(getattr(self.obj, self.key))
+	def fromValue(self, value):
+		value = self.type(value)
 		self.setText(str(value))
 
-	def __valueChanged__(self):
-		value = self.keyType(self.text())
+	def __onEdited__(self):
+		value = self.type(self.text())
 		self.setText(str(value))
-		setattr(self.obj, self.key, value)
+		self.setValue(value)
 
-class QBoundToggleEdit(QCheckBox):
-	def __init__(self, obj, key: str):
-		super().__init__()
-		self.obj = obj
-		self.key = key
-		self.reset()
-		self.toggled.connect(self.__valueChanged__)
+class QBoundToggleEdit(BoundEdit, QCheckBox):
+	def __init__(self, obj: Any, key: str):
+		super().__init__(obj, key)
+		self.fromValue(self.getValue())
+		self.toggled.connect(self.__onEdited__)
 
-	def reset(self):
-		value = getattr(self.obj, self.key)
+	def fromValue(self, value: bool):
 		self.setChecked(value)
 	
-	def __valueChanged__(self) -> None:
-		setattr(self.obj, self.key, self.isChecked())
+	def __onEdited__(self) -> None:
+		self.setValue(self.isChecked())
 
-class TextureSettingsGroup(QGroupBox):
-	def __init__(self, config: dict[TargetRole, TargetConfig], parent: QWidget|None=None):
+class QBoundComboEdit(BoundEdit, QComboBox):
+	def __init__(self, obj: Any, key: str, enum: type[IntEnum]):
+		super().__init__(obj, key)
+
+		self.enum = enum
+		for item in enum:
+			self.addItem(item.name, userData=item.value)
+
+		self.fromValue(self.getValue())
+		self.currentIndexChanged.connect(self.__onEdited__)
+
+	def fromValue(self, value: Any):
+		value = getattr(self.obj, self.key)
+		for i, item in enumerate(self.enum):
+			if value == item or value == item.value:
+				return self.setCurrentIndex(i)
+		self.setCurrentIndex(0)
+
+	@Slot()
+	def __onEdited__(self, idx: int) -> None:
+		self.setValue(self.enum(self.itemData(idx)))
+
+class QBoundFlagsEdit(BoundEdit, QWidget):
+	def __init__(self, obj: Any, key: str, enum: type[IntEnum]):
+		super().__init__(obj, key)
+
+		self.mapper = QSignalMapper(self)
+		self.mapper.mappedInt.connect(self.__onEdited__)
+		self.mapper.blockSignals(True)
+		self.buttons: dict[int, QCheckBox] = {}
+
+		layout = QVBoxLayout(self)
+		layout.setContentsMargins(0, 0, 0, 0)
+		layout.setSpacing(0)
+
+		for v in enum:
+			btn = QCheckBox(v.name)
+			btn.checkStateChanged.connect(self.mapper.map)
+			self.mapper.setMapping(btn, v.value)
+			self.buttons[v.value] = btn
+			layout.addWidget(btn)
+
+		self.setLayout(layout)
+		self.fromValue(self.getValue())
+
+	def fromValue(self, value: Any):
+		self.mapper.blockSignals(True)
+		for flag, button in self.buttons.items():
+			button.setChecked((flag & value) != 0)
+		self.mapper.blockSignals(False)
+	
+	@Slot()
+	def __onEdited__(self, flag: int):
+		v = self.getValue()
+		if self.buttons[flag].isChecked():
+			self.setValue(v | flag)
+		else:
+			self.setValue(v & (~flag))
+
+TextureConfigDict = dict[TargetRole, TargetConfig]
+
+class TextureSettingsWindow(QWidget):
+	settings: list[tuple[str, QBoundToggleEdit | QBoundLineEdit | QBoundComboEdit | QBoundFlagsEdit]]
+
+	def __init__(self, targets: TextureConfigDict, parent: QWidget|None=None):
 		super().__init__(parent)
 
-		self.setTitle('Textures')
-		self.config = config
+		self.setWindowTitle('PBR-2-Source - Target Settings')
+		self.targets = targets
 
-		layout = QGridLayout()
-		layout.setColumnStretch(1, 1) # Texture postfix
-		layout.setSpacing(5)
+		layout = QGridLayout(self)
 
-		for i, header in enumerate(TEX_COLUMNS):
-			head = QLabel('**'+header+'**', textFormat=Qt.TextFormat.MarkdownText)
-			layout.addWidget(head, 0, i)
+		tex = self.targets[TargetRole.Basecolor]
+		self.settings = [
+			('Postfix',		QBoundLineEdit(tex, 'postfix', None)),
+			('Lossy',		QBoundToggleEdit(tex, 'lossy')),
+			('Zip',			QBoundToggleEdit(tex, 'zip')),
+			# ('Scale',		QBoundLineEdit(tex, 'scale', 'float')),
+			('Mipmaps',		QBoundLineEdit(tex, 'mipmaps', 'int')),
+			('Filter',		QBoundComboEdit(tex, 'mipmapFilter', vtfpp.ImageConversion.ResizeFilter)),
+			('Flags',		QBoundFlagsEdit(tex, 'flags', ImageFlags))
+		]
 
+		self.combo = QComboBox()
+		self.combo.currentIndexChanged.connect(self.onCurrentRoleChanged)
 
-		for i, (role, tex) in enumerate(config.items()):
-			layout.addWidget(QLabel(role.name), i+1, 0)
-			layout.addWidget(QBoundLineEdit(tex, 'postfix', 'str'), i+1, 1)
-			layout.addWidget(QBoundToggleEdit(tex, 'lossy'), i+1, 2, Qt.AlignmentFlag.AlignHCenter)
-			layout.addWidget(QBoundLineEdit(tex, 'scale', 'float'), i+1, 4)
-			layout.addWidget(QBoundLineEdit(tex, 'mipmaps', 'int'), i+1, 5)
+		for role in TargetRole:
+			self.combo.addItem(role.name, userData=role.value)
+
+		layout.addWidget(self.combo, 0, 0, 1, 2)
+
+		for i, (title, setting) in enumerate(self.settings):
+			# head = QLabel('**'+title+'**', textFormat=Qt.TextFormat.MarkdownText)
+			head = QLabel(title, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+			layout.addWidget(head, i+1, 0)
+			layout.addWidget(setting, i+1, 1) # type: ignore
 
 		self.setLayout(layout)
 
+	@Slot()
+	def onCurrentRoleChanged(self, idx: int):
+		self.setSelectedRole(TargetRole(self.combo.itemData(idx)))
 
-class SettingsWindow(QWidget):
-	def __init__(self, parent: QWidget|None=None):
-		super().__init__(parent)
+	def copySettings(self, a: TextureConfigDict, b: TextureConfigDict):
+		for role in TargetRole:
+			b[role] = a[role].clone()
 
-		self.setMinimumSize(200, 200)
-		self.setWindowTitle("PBR-2-Source: Settings")
-
-		layout = QVBoxLayout()
-
-		test_config = get_config() # AppConfig().textures
-		# test_model = TextureSettingsTableModel(test_config)
-
-		# table = QTableView()
-		# table.setModel(test_model)
-		# layout.addWidget(table)
-
-		texSettings = TextureSettingsGroup(test_config.targets)
-		layout.addWidget(texSettings)
-
-		self.setLayout(layout)
-
-
-# if __name__ == '__main__':
-# 	from PySide6.QtWidgets import QApplication
-
-# 	app = QApplication()
-# 	win = SettingsWindow()
-
-# 	win.show()
-# 	app.exec()
+	def setSelectedRole(self, role: TargetRole):
+		for (_, setting) in self.settings:
+			setting.bind(self.targets[role])

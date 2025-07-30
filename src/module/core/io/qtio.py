@@ -76,7 +76,7 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1, **kwargs) -> bool:
+	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1, mipmapFilter: int=0, **kwargs) -> bool:
 		height, width, bands = image.data.shape
 
 		path = Path(path)
@@ -110,7 +110,7 @@ class QtIOBackend(IOBackend):
 			target_format = format
 
 		vtf = vtfpp.VTF()
-		vtf.set_image(image.data.tobytes('C'), format, width, height, vtfpp.ImageConversion.ResizeFilter.KAISER)
+		vtf.set_image(image.data.tobytes('C'), format, width, height, mipmapFilter if mipmapFilter != -1 else vtfpp.ImageConversion.ResizeFilter.DEFAULT)
 		vtf.version = version
 		vtf.flags = flags
 		vtf.set_format(target_format)

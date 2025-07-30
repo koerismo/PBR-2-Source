@@ -38,7 +38,7 @@ def make_vmt(mat: Material) -> str:
 	T = TargetRole
 
 	def post(role: TargetRole):
-		return texRoles[role].postfix
+		return texRoles[role].postfix.rsplit('.', 2)[0]
 
 	def write(*args: str):
 		l = len(vmt)
