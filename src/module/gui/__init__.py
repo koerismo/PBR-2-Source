@@ -1,6 +1,6 @@
 from ..version import __version__
 import logging as log
-from ..core.config import AppConfig, AppTheme, get_root, load_config
+from ..core.config import AppConfig, AppTheme, get_root, load_config, AppCache, load_cache, save_cache
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
 from ..core.preset import Preset
@@ -14,10 +14,10 @@ from traceback import format_exc
 from datetime import datetime
 
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl
-from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence
+from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl, QSignalMapper
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence, QAction
 from PySide6.QtWidgets import (
-	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar,
+	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar, QMenu,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
 	QLabel, QLineEdit, QToolButton, QFileDialog,
 	QGroupBox, QProgressBar, QPushButton, QComboBox
@@ -192,10 +192,12 @@ class MainWindow( QMainWindow ):
 	config: AppConfig
 	backend: CoreBackend
 	progressBar: QProgressBar
+	loadRecentMenu: QMenu
+	loadRecentMapper: QSignalMapper
 
 	lastPresetPath: str|None = None
 	lastMaterialsPath: str|None = None
-	recentPresets: list[str]
+	cache: AppCache
 
 	def __init__(self, config: AppConfig, parent=None) -> None:
 		#region init
@@ -213,6 +215,7 @@ class MainWindow( QMainWindow ):
 
 		self.config = config
 		self.backend = CoreBackend()
+		self.cache = load_cache()
 
 		#endregion
 		''' ========================== MENU ========================== '''
@@ -223,11 +226,16 @@ class MainWindow( QMainWindow ):
 
 		self.setMenuBar(menuBar)
 		fileMenu = menuBar.addMenu('File')
-		loadAction = fileMenu.addAction('Load Preset')
+		loadAction = fileMenu.addAction('Open')
 		loadAction.setShortcut(QKeySequence.StandardKey.Open)
 		loadAction.triggered.connect(self.load_preset)
 
-		saveAction = fileMenu.addAction('Save Preset')
+		self.loadRecentMenu = fileMenu.addMenu('Open Recent...')
+		self.loadRecentMapper = QSignalMapper(self)
+		self.loadRecentMapper.mappedString.connect(self.load_preset_recent)
+		self.setupRecentFileMenu()
+
+		saveAction = fileMenu.addAction('Save')
 		saveAction.setShortcut(QKeySequence.StandardKey.Save)
 		saveAction.triggered.connect(self.save_preset)
 		
@@ -403,7 +411,7 @@ class MainWindow( QMainWindow ):
 		self.setMinimumSize(self.sizeHint())
 		self.resize(600, 450)
 
-	def setWindowTitle(self):
+	def setWindowTitle(self, _title: str|None=None):
 		base_title = 'PBR-2-Source v'+__version__
 		if self.watching: base_title += ' (Watching)'
 		if self.target != None: base_title += ' - ' + Path(self.target).name
@@ -424,12 +432,14 @@ class MainWindow( QMainWindow ):
 			return
 
 		log.debug('Picking target')
-		targetPath = QFileDialog.getSaveFileName(self,
-										caption='Saving material...',
-										filter='Valve Material (*.vmt)',
-										options=(QFileDialog.Option.DontConfirmOverwrite if self.config.overwriteVmts else 0), # type: ignore
-										dir=self.lastMaterialsPath, # type: ignore
-										)[0]
+
+		pickOptions = {}
+		if self.config.overwriteVmts:
+			pickOptions['options'] = QFileDialog.Option.DontConfirmOverwrite
+		if self.lastMaterialsPath != None:
+			pickOptions['dir'] = self.lastMaterialsPath
+
+		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', **pickOptions)[0]
 
 		if len(targetPath):
 			self.lastMaterialsPath = str(Path(targetPath).parent)
@@ -564,13 +574,20 @@ class MainWindow( QMainWindow ):
 	#region Presets
 
 	@Slot()
-	def load_preset(self):
-		path = QFileDialog.getOpenFileName(self,
+	def load_preset_recent(self, path: str):
+		self.load_preset(path=path)
+
+	@Slot()
+	def load_preset(self, *, path: str|None=None):
+		if path == None:
+			path = QFileDialog.getOpenFileName(self,
 									caption='Loading preset...',
 									filter='JSON Presets (*.json)',
 									dir=self.lastPresetPath, # type: ignore
 									)[0]
-		if not len(path): return
+
+		if path == None or len(path) == 0:
+			return
 
 		# Reset target path
 		if self.watching: self.stop_watch()
@@ -588,6 +605,9 @@ class MainWindow( QMainWindow ):
 
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
+
+		# Append to recent files
+		self.pushRecentFile(path)
 	
 	def save_preset(self):
 		path = QFileDialog.getSaveFileName(self,
@@ -603,6 +623,67 @@ class MainWindow( QMainWindow ):
 		preset = Preset()
 		self.backend.save_preset(preset)
 		preset.save(path)
+
+	#endregion
+	#region Recents
+
+	def makeRecentFileMenuAction(self, path: str) -> QAction:
+		p = Path(path)
+		rp = str(p.relative_to(p.parent.parent.parent))
+
+		action = QAction(rp, self.loadRecentMenu)
+		self.loadRecentMapper.setMapping(action, path)
+		action.triggered.connect(self.loadRecentMapper.map)
+		return action
+
+	def setupRecentFileMenu(self) -> None:
+		for path in self.cache.recent:
+			self.loadRecentMenu.addAction(self.makeRecentFileMenuAction(path))
+
+	def pushRecentFile(self, path: str) -> None:
+		historyCount = len(self.cache.recent)
+		actionList = self.loadRecentMenu.actions()
+		assert len(actionList) == historyCount, 'File history desync! This should never happen!'
+
+		# If this entry already exists, remove it.
+		for i, file in enumerate(self.cache.recent):
+			if file == path:
+				# If this was the last file loaded, then we don't need to change anything. Return early!
+				if i == 0: return
+				self.cache.recent.pop(i)
+				self.loadRecentMapper.removeMappings(actionList[i])
+				self.loadRecentMenu.removeAction(actionList[i])
+				break
+
+		# Append to start of list
+		action = self.makeRecentFileMenuAction(path)
+		if len(actionList) == 0:
+			self.loadRecentMenu.addAction(action)
+			self.cache.recent.append(path)
+		else:
+			self.loadRecentMenu.insertAction(actionList[0], action)
+			self.cache.recent.insert(0, path)
+
+		# Re-fetch lists so we don't try to delete anything twice
+		historyCount = len(self.cache.recent)
+		actionList = self.loadRecentMenu.actions()
+
+		# Remove history if we reach a limit
+		if historyCount > 10:
+			self.loadRecentMenu.removeAction(actionList[-1])
+			self.cache.recent.pop(-1)
+
+	def closeEvent(self, event: QCloseEvent) -> None:
+		log.info('Shutting down...')
+		try:
+			log.debug('Saving app cache...')
+			save_cache(self.cache)
+
+		except Exception as e:
+			log.error(f'An error occurred during shutdown! Traceback:\n{format_exc()}')
+
+		log.info('Goodbye!')
+		event.accept()
 
 	#endregion
 

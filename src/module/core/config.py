@@ -1,14 +1,16 @@
 from enum import IntEnum, Enum
 from traceback import format_exc
-from recordclass import RecordClass
+from dataclasses import dataclass, asdict, field
 
+from io import SEEK_SET
 from pathlib import Path
 import logging as log
 import sys, json
 
 from ..version import __version__
 
-DEFAULT_NAME = 'appconfig.json'
+CONFIG_NAME = 'appconfig.json'
+CACHE_NAME = 'appcache.json'
 
 __config__: 'AppConfig'
 __configPath__: Path
@@ -37,7 +39,8 @@ class TargetRole(Enum):
 	EnvmapMask	= 'ENVMASK'	# 4
 	Mrao		= 'MRAO'	# 5 # :3
 
-class TargetConfig(RecordClass):
+@dataclass
+class TargetConfig():
 	postfix: str
 	lossy: bool
 	zip: bool = False
@@ -46,10 +49,10 @@ class TargetConfig(RecordClass):
 	flags: int = 0
 
 	def encode(self):
-		return self._asdict()
+		return asdict(self)
 
 	def copy(self):
-		return TargetConfig(**self._asdict())
+		return TargetConfig(**asdict(self))
 
 	@staticmethod
 	def decode(data) -> 'TargetConfig':
@@ -66,7 +69,8 @@ class HijackMode(IntEnum):
 	Windows = 1
 	NetCon = 2
 
-class AppConfig(RecordClass):
+@dataclass
+class AppConfig():
 	appTheme: AppTheme = AppTheme.Default
 	''' The app visual theme. '''
 	hijackMode: HijackMode = HijackMode.Disabled
@@ -77,18 +81,18 @@ class AppConfig(RecordClass):
 	''' If true, always writes to the VMT, even if one already exists. '''
 	watchTimeout: int = 500
 	''' The timeout (milliseconds) to use when listening for input changes before initiating an export. '''
-	targets: dict[TargetRole, TargetConfig] = {
+	targets: dict[TargetRole, TargetConfig] = field(default_factory=lambda: {
 		TargetRole.Basecolor:	TargetConfig("_basecolor.vtf", True),
 		TargetRole.Bumpmap:		TargetConfig("_bump.vtf", False),
 		TargetRole.Emit:		TargetConfig("_emit.vtf", False),
 		TargetRole.PhongExp:	TargetConfig("_phongexp.vtf", False),
 		TargetRole.EnvmapMask:	TargetConfig("_envmask.vtf", False),
 		TargetRole.Mrao:		TargetConfig("_mrao.vtf", False)
-	}
+	})
 
 	def encode(self):
 		return {
-			**self._asdict(),
+			**asdict(self),
 			"targets": { str(k.value): v.encode() for k, v in self.targets.items() }
 		}
 	
@@ -104,7 +108,7 @@ class AppConfig(RecordClass):
 
 	def copy(self):
 		return AppConfig(**{
-			**self._asdict(),
+			**asdict(self),
 			"targets": { k: v.copy() for k, v in self.targets.items() }
 		})
 
@@ -116,11 +120,11 @@ def load_config(gui=True, pathOverride: str|None=None) -> AppConfig:
 	if pathOverride != None:
 		__configPath__ = Path(pathOverride)
 		if __configPath__.is_dir():
-			__configPath__ = __configPath__ / DEFAULT_NAME
+			__configPath__ = __configPath__ / CONFIG_NAME
 	
 	# Default config path
 	else:
-		__configPath__ = root_path / DEFAULT_NAME
+		__configPath__ = root_path / CONFIG_NAME
 
 	# Create a new config if necessary
 	if not __configPath__.is_file():
@@ -162,3 +166,29 @@ def make_config():
 	config = AppConfig()
 	save_config(config)
 	return config
+
+@dataclass
+class AppCache():
+	recent: list[str] = field(default_factory=lambda: [])
+
+def load_cache() -> AppCache:
+	cache_path = root_path / CACHE_NAME
+
+	try:
+		with open(cache_path, 'r') as file:
+			log.info('Reading cache...')
+			return AppCache(**json.load(file))
+	
+	except FileNotFoundError as e:
+		log.info('Using fresh cache...')
+		return AppCache()
+	
+	except json.JSONDecodeError as e:
+		log.error(f'Failed to parse cache! Falling back to fresh cache.\n{format_exc()}')
+		return AppCache()
+
+def save_cache(cache: AppCache) -> None:
+	cache_path = root_path / CACHE_NAME
+
+	with open(cache_path, 'w') as file:
+		json.dump(asdict(cache), file)

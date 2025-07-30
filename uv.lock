@@ -102,7 +102,6 @@ dependencies = [
     { name = "numpy" },
     { name = "pyinstaller" },
     { name = "pyside6" },
-    { name = "recordclass" },
     { name = "sourcepp" },
 ]
 
@@ -111,7 +110,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "pyinstaller", specifier = ">=6.9.0" },
     { name = "pyside6", specifier = ">=6.5.3" },
-    { name = "recordclass", specifier = ">=0.23.1" },
     { name = "sourcepp", specifier = ">=2025.7.27" },
 ]
 
@@ -220,18 +218,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/85/9f/01a1a99704853cb63f253eea009390c88e7131c67e66a0a02099a8c917cb/pywin32-ctypes-0.2.3.tar.gz", hash = "sha256:d162dc04946d704503b2edc4d55f3dba5c1d539ead017afa00142c38b9885755", size = 29471, upload-time = "2024-08-14T10:15:34.626Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl", hash = "sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8", size = 30756, upload-time = "2024-08-14T10:15:33.187Z" },
-]
-
-[[package]]
-name = "recordclass"
-version = "0.23.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bd/d0/32de6ae6d05ad21233b77e567d8c5d32af9be1b14c4f924e86059c8152b2/recordclass-0.23.1.tar.gz", hash = "sha256:cd6391030709d1cb42c6a901aa1053411ae5baf8762a5eb763e220be2489b3c9", size = 1252339, upload-time = "2025-04-14T20:14:48.523Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/9f/c88ba3a3a7c4393671efe2902a4fc2fe87de46855ddb1263849fc9f1b660/recordclass-0.23.1-cp310-cp310-win_amd64.whl", hash = "sha256:21075e51a5a0aad06961a585a3125ef42cb971733d6548b7733ad66b7dd9c603", size = 248871, upload-time = "2025-04-19T06:13:52.1Z" },
-    { url = "https://files.pythonhosted.org/packages/57/57/e7c61eff0271bfb0c343eba2b3d799eb3c1544b622d9f9b31dc19bc78fcb/recordclass-0.23.1-cp311-cp311-win_amd64.whl", hash = "sha256:a662ee44777e99c9dea0db182159a8154c4aae93a1547c8960ffd7e0099f26d9", size = 249242, upload-time = "2025-04-19T06:13:54.761Z" },
-    { url = "https://files.pythonhosted.org/packages/c0/43/6f2693abb1a566c517dfc57f888a282476d80bc0e04deac0c11162ed4224/recordclass-0.23.1-cp312-cp312-win_amd64.whl", hash = "sha256:03bef1c740f16fa2088e2eaec1c4d4d1fbafc6aae22682f974060560c7bf957b", size = 249234, upload-time = "2025-04-19T06:13:56.879Z" },
-    { url = "https://files.pythonhosted.org/packages/8b/5b/ce7b011b480a82651b108e6fb3d60d3d8d964ef8b0e51ec73ddc8cfbf83f/recordclass-0.23.1-cp313-cp313-win_amd64.whl", hash = "sha256:9b879f1763a295a80003ec4cf71bdbad77d3d185f3040bfe6ddcf5555b9908ac", size = 248953, upload-time = "2025-04-19T06:13:59.267Z" },
 ]
 
 [[package]]

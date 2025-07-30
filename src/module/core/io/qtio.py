@@ -76,13 +76,12 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1) -> None:
+	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1, **kwargs) -> bool:
 		height, width, bands = image.data.shape
 
 		path = Path(path)
 		if path.suffix !='.vtf':
-			assert image_to_qimage(image).save(str(path)), f'Failed to export image "{path}"!'
-			return
+			return image_to_qimage(image).save(str(path))
 
 		format = None
 		target_format = None
@@ -125,6 +124,8 @@ class QtIOBackend(IOBackend):
 		with open(path, 'wb') as file:
 			data = vtf.bake()
 			file.write(data)
+
+		return True
 	
 	@staticmethod
 	def resize(image: Image, dims: tuple[int, int]) -> Image:
