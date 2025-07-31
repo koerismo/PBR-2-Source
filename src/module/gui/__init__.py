@@ -138,9 +138,7 @@ class PickableImage( QFrame ):
 		filePath = Path(rawFilePath)
 		if not filePath.is_file(): return
 		event.accept()
-
-		self.path = filePath
-		self.__update_meta__()
+		self.backend.set_role_image(rawFilePath, self.role)
 
 	def __set_path__(self, path: str):
 		self.path = Path(path)
@@ -158,13 +156,10 @@ class PickableImage( QFrame ):
 	def __on_icon_click__(self):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.name} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
 		if len(fileUrls) == 0: return
-		self.__set_path__(fileUrls[0])
 		self.backend.set_role_image(fileUrls[0], self.role)
 
 	def __on_icon_rclick__(self):
-		self.path = None
 		self.backend.set_role_image(None, self.role)
-		self.__update_meta__()
 
 	def __update_meta__(self):
 		''' Updates the text and styling for this widget. '''
@@ -442,6 +437,8 @@ class MainWindow( QMainWindow ):
 		pickPath = Path(self.lastTargetPath or self.lastPresetPath or '')
 		if self.backend.name:
 			pickPath = pickPath.with_name(self.backend.name.rsplit('/', 2)[-1] + '.vmt')
+		elif pickPath.name:
+			pickPath = pickPath.with_suffix('.vmt')
 
 		targetPath, _ = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', dir=str(pickPath), **pickOptions)
 
