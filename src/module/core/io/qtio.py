@@ -5,16 +5,16 @@ from PySide6.QtGui import QImage
 from PySide6.QtCore import Qt
 
 import numpy as np
-from srctools.vtf import VTF, VTFFlags, ImageFormats
 from typing import IO
+from sourcepp import vtfpp
+ImageFormats = vtfpp.ImageFormat
 
 qimage_test: QImage|None = None
 
 def load_vtf(file: IO[bytes]):
-	vtf = VTF.read(file)
-	frame = vtf.get()
-	frame.load()
-	data = (np.array(frame._data) / 255.0).reshape((frame.width, frame.height, 4))
+	vtf = vtfpp.VTF(file.read())
+	frame: bytes = vtf.get_image_data_as_rgba8888()
+	data = (np.frombuffer(frame, dtype=np.uint8).astype(np.float32) / 255.0).reshape((vtf.width_for_mip(0), vtf.height_for_mip(0), 4))
 	return Image(data)
 
 def image_to_qimage(image: Image) -> QImage:
@@ -51,6 +51,8 @@ def qimage_to_image(qimage: QImage) -> Image:
 			qimage = qimage.convertToFormat(QImage.Format.Format_RGBA16FPx4)
 
 	ptr = qimage.constBits()
+	assert ptr != None, 'Failed to get QImage data handle. This might mean that the file could not be accessed!'
+
 	data = np.frombuffer(ptr, dtype=dtype).copy().reshape(qimage.height(), qimage.width(), channels)
 	return Image(data)
 
@@ -74,32 +76,32 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=4, compressed: bool=True) -> None:
+	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1, mipmapFilter: int=0, **kwargs) -> bool:
 		height, width, bands = image.data.shape
 
 		path = Path(path)
 		if path.suffix !='.vtf':
-			raise NotImplementedError(f'Failed to save {path.name} . Use imageio backend for non-vtf output!')
+			return image_to_qimage(image).save(str(path))
 
 		format = None
 		target_format = None
+		is_strata = version == 6
 
-		max_value = 255
-		flags = VTFFlags.EMPTY
 		match (bands, image.data.dtype):
 			case (1, 'uint8'):
 				format = ImageFormats.I8
 			case (3, 'uint8'):
-				if compressed:	target_format = ImageFormats.DXT1
 				format = ImageFormats.RGB888
+				if lossy: target_format = ImageFormats.DXT1
+				elif is_strata: target_format = ImageFormats.RGBA8888 # TODO: Expand this to any DX11 game
 			case (4, 'uint8'):
-				if compressed:	target_format = ImageFormats.DXT5
 				format = ImageFormats.RGBA8888
-				flags |= VTFFlags.EIGHTBITALPHA
+				if lossy: target_format = ImageFormats.BC7 if is_strata else ImageFormats.DXT5
+				flags |= vtfpp.VTF.MULTI_BIT_ALPHA.value
 			case (4, 'float16'):
 				format = ImageFormats.RGBA16161616F
-				flags |= VTFFlags.EIGHTBITALPHA
-				max_value = 1.0
+				if lossy and is_strata: target_format = ImageFormats.BC6H
+				flags |= vtfpp.VTF.MULTI_BIT_ALPHA.value
 
 		if format == None:
 			raise TypeError(f"Could not match format {image.data.dtype}x{bands}!")
@@ -107,24 +109,23 @@ class QtIOBackend(IOBackend):
 		if target_format == None:
 			target_format = format
 
-		vtf = VTF(width, height, (7, version), fmt=target_format, flags=flags)
-		vtf.get().copy_from(image.data.tobytes('C'), format)
-		
-		# Use color for reflectivity
-		average = image.average()
-		if bands >= 3:
-			vtf.reflectivity.x = average[0] / max_value
-			vtf.reflectivity.y = average[1] / max_value
-			vtf.reflectivity.z = average[2] / max_value
-		else:
-			amount = average[0] / max_value
-			vtf.reflectivity.x = amount
-			vtf.reflectivity.y = amount
-			vtf.reflectivity.z = amount
+		vtf = vtfpp.VTF()
+		vtf.set_image(image.data.tobytes('C'), format, width, height, mipmapFilter if mipmapFilter != -1 else vtfpp.ImageConversion.ResizeFilter.DEFAULT)
+		vtf.version = version
+		vtf.flags = flags
+		vtf.set_format(target_format)
 
+		if mipmaps != -1:
+			vtf.mip_count = mipmaps
+
+		if is_strata and zip:
+			vtf.compression_level = -1
 
 		with open(path, 'wb') as file:
-			vtf.save(file)
+			data = vtf.bake()
+			file.write(data)
+
+		return True
 	
 	@staticmethod
 	def resize(image: Image, dims: tuple[int, int]) -> Image:

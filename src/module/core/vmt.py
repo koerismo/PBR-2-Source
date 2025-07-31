@@ -1,5 +1,5 @@
-from srctools.keyvalues import Keyvalues
 from .material import Material, MaterialMode, GameTarget
+from .config import get_config, TargetRole
 
 
 '''
@@ -34,13 +34,19 @@ def make_vmt(mat: Material) -> str:
 	shader = MaterialMode.get_shader(mat.mode)
 	vmt    = []
 
+	texRoles = get_config().targets
+	T = TargetRole
+
+	def post(role: TargetRole):
+		return texRoles[role].postfix.rsplit('.', 2)[0]
+
 	def write(*args: str):
 		l = len(vmt)
 		vmt[l:l+len(args)] = args
 
 	write(			f'{shader}\n{{',
-					f'	$basetexture		"{mat.name}_albedo"',
-					f'	$bumpmap			"{mat.name}_bump"' )
+					f'	$basetexture		"{mat.name}{post(T.Basecolor)}"',
+					f'	$bumpmap			"{mat.name}{post(T.Bumpmap)}"' )
 
 	if MaterialMode.has_alpha(mat.mode):
 		write(		'	$translucent	1')
@@ -48,12 +54,12 @@ def make_vmt(mat: Material) -> str:
 	if pbr:
 		write(
 					'',
-					f'	$mraotexture		"{mat.name}_mrao"',
+					f'	$mraotexture		"{mat.name}{post(T.Mrao)}"',
 					f'	$model				{int(MaterialMode.is_model(mat.mode))}' )
 		
 		if mat.emit:
 			write(
-					f'	$emissiontexture	"{mat.name}_emit"')
+					f'	$emissiontexture	"{mat.name}{post(T.Emit)}"')
 		if mat.height:
 			write(
 					'',
@@ -86,7 +92,7 @@ def make_vmt(mat: Material) -> str:
 			# Unpacked envmap
 			else:
 				write(
-					f'	$envmapmask					"{mat.name}_envmap"')
+					f'	$envmapmask					"{mat.name}{post(T.EnvmapMask)}"')
 				
 				# Enable fresnel for envmap always
 				if MaterialMode.is_vlg(mat.mode): write(
@@ -106,7 +112,7 @@ def make_vmt(mat: Material) -> str:
 			write(
 					'',
 					'	$phong 1',
-					f'	$phongexponenttexture		"{mat.name}_phongexp"',
+					f'	$phongexponenttexture		"{mat.name}{post(T.PhongExp)}"',
 					'	$phongexponentfactor		32.0',
 					'	$phongboost					5.0')
 		
@@ -118,7 +124,7 @@ def make_vmt(mat: Material) -> str:
 		# Do we need to handle self-illumination?
 		if MaterialMode.has_selfillum(mat.mode):
 			write(	'',
-					f'	$detail				"{mat.name}_emit"'
+					f'	$detail				"{mat.name}{post(T.Emit)}"'
 					'	$detailscale		1',
 					'	$detailblendmode	5')
 	write('}')

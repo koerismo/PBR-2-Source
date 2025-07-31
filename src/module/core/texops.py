@@ -37,7 +37,7 @@ def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'R
 	if size:
 		img = img.resize(size)
 
-	img = img.convert(np.float16)
+	img = img.convert(np.float32)
 
 	if mode:
 		img = img.normalize(mode)
@@ -45,7 +45,6 @@ def normalize(img: Image, size: tuple[int, int]|None=None, mode: Literal['L', 'R
 		img = img.normalize('RGB')
 
 	return img
-
 
 def make_phong_exponent(mat: Material) -> Image:
 	''' Generates an RGB phong exponent texture. '''
@@ -70,7 +69,7 @@ def make_phong_mask(mat: Material) -> Image:
 
 	assert mat.roughness != None
 
-	mask = mat.roughness.copy().invert().pow(4).mult(1.3)
+	mask = mat.roughness.copy().invert().pow(3).mult(1.1)
 	if mat.ao: mask.mult(mat.ao)
 
 	return mask
@@ -141,6 +140,7 @@ def make_basecolor(mat: Material) -> Image:
 	# Envmap mask as basetexture alpha
 	elif not using_phong and MaterialMode.embed_envmap(mat.mode):
 		# TODO: This sucks, but srctools has forced my hand. Libsquish needs a flag to account for full-alpha, which we can't give it.
+		# TODO: Verify that this is still an issue with sourcepp bcenc?
 		envmask = make_envmask(mat)
 		envmask.data = envmask.data.clip(min=(1 / 255))
 		return Image.merge((r, g, b, envmask))
@@ -176,7 +176,7 @@ def make_bumpmap(mat: Material) -> Image:
 def make_mrao(mat: Material) -> Image:
 	''' Generates a RGB MRAO texture. '''
 
-	ao = mat.ao or Image.blank(mat.detailSize, color=(1,))
+	ao = mat.ao or Image.blank(mat.size, color=(1,))
 	return Image.merge((mat.metallic, mat.roughness, ao))
 
 

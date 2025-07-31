@@ -1,4 +1,5 @@
 from .io.image import Image
+from .config import TargetRole
 from enum import IntEnum
 
 class MaterialMode(IntEnum):
@@ -69,8 +70,7 @@ class Material:
 	mode: MaterialMode
 	target: GameTarget
 	size: tuple[int, int]
-	detailSize: tuple[int, int]
-	name: str
+	name: str|None = None
 
 	albedo: Image			# Linear RGBAf
 	roughness: Image		# Linear f
@@ -87,8 +87,6 @@ class Material:
 			mode: MaterialMode,
 			target: GameTarget,
 			size: tuple[int, int],
-			detailSize: tuple[int, int],
-			name: str,
 
 			albedo: Image,
 			roughness: Image,
@@ -103,8 +101,6 @@ class Material:
 		self.mode = mode
 		self.target = target
 		self.size = size
-		self.detailSize = detailSize
-		self.name = name
 
 		self.albedo = albedo
 		self.roughness = roughness
@@ -122,10 +118,8 @@ class Material:
 
 class Texture():
 	image: Image
-	name: str
-	compressed: bool
+	role: TargetRole
 
-	def __init__(self, image: Image, name: str, compressed: bool=True) -> None:
+	def __init__(self, image: Image, role: TargetRole) -> None:
 		self.image = image
-		self.name = name
-		self.compressed = compressed
+		self.role = role

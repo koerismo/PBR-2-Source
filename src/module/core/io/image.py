@@ -12,7 +12,7 @@ class IOBackend():
 
 	@staticmethod
 	@abstractmethod
-	def save(image: 'Image', path: str|Path, version: int=5, compressed: bool=True) -> bool:
+	def save(image: 'Image', path: str|Path, **kwargs) -> bool:
 		...
 
 	@staticmethod
@@ -32,7 +32,6 @@ class Image():
 	limitations and general badness of the PIL API.
 	'''
 
-
 	backend: type[IOBackend] # static
 
 	@staticmethod
@@ -44,7 +43,7 @@ class Image():
 		return Image.backend.load(path)
 
 	@staticmethod
-	def blank(size: tuple[int, int], color: tuple[int|float, ...]=(1, 1, 1), dtype: DTypeLike='float32') -> 'Image':
+	def blank(size: tuple[int, int], color: tuple[int|float, ...]=(1, 1, 1), dtype: DTypeLike=np.float32) -> 'Image':
 		''' Creates a blank image by size, type, and color. '''
 		data = np.ndarray((size[1], size[0], len(color)), dtype, order='C')
 		data.fill(1)
@@ -63,13 +62,15 @@ class Image():
 
 
 	data: np.ndarray
+	dna: set[int]
 
-	def __init__(self, src: np.ndarray) -> None:
+	def __init__(self, src: np.ndarray, dna: set[int]=set()) -> None:
 		''' Creates a new image. src can be a filepath or a numpy array! '''
 		if not isinstance(src, np.ndarray):
 			raise NotImplementedError('Cannot construct generic image from non-ndarray. Use IO implementation!')
 
 		self.data = src
+		self.dna = dna
 
 		if self.channels == 1:
 			self.data = self.data.reshape((self.size[1], self.size[0], 1))
@@ -154,9 +155,9 @@ class Image():
 		if self.data.dtype == format: return self.data.tobytes('C')
 		return self.data.astype(format).tobytes('C')
 
-	def save(self, path: str|Path, version: int=5, compressed: bool=True) -> bool:
+	def save(self, path: str|Path, **kwargs) -> bool:
 		''' Saves this image to a file. Useful for debug. '''
-		return Image.backend.save(self, path, version, compressed)
+		return Image.backend.save(self, path, **kwargs)
 
 	def copy(self) -> "Image":
 		''' Clones this image. '''

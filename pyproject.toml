@@ -8,6 +8,5 @@ dependencies = [
     "numpy>=1.26.0",
     "pyinstaller>=6.9.0",
     "pyside6>=6.5.3",
-    "srctools>=2.3.14",
-    "tomlkit>=0.13.0",
+    "sourcepp>=2025.7.27",
 ]

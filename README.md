@@ -15,6 +15,18 @@ A Python-powered gui for converting pbr materials into Source Engine-compatible 
 ---
 ### [View Builds](https://github.com/koerismo/PBR-2-Source/releases)
 
+## Command-line Arguments
+
+```
+usage: PBR-2-Source.exe [-h] [--logfile LOGFILE] [--config CONFIG]
+
+options:
+  -h, --help         show this help message and exit
+  --logfile LOGFILE  Writes errors and information to the specified file.
+  --config CONFIG    Uses the specified config path instead of the installation config path
+```
+
+
 ## Building from Source
 
 ### With uv

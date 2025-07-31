@@ -1,40 +1,38 @@
 from ..version import __version__
 import logging as log
-from ..config import AppConfig, AppTheme, load_config
+from ..core.config import AppConfig, AppTheme, get_res, load_config, AppCache, load_cache, save_cache
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
-from ..preset import Preset
+from ..core.preset import Preset
 
 from .style import STYLESHEET_TILE_REQUIRED, STYLESHEET, STYLESHEET_MIN
 from .backend import CoreBackend, ImageRole
 
 from typing import Any
-from sys import argv, platform
+from sys import platform
 from traceback import format_exc
-import sys
 from datetime import datetime
-from srctools.run import send_engine_command
 
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl
-from PySide6.QtGui import QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence
+from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl, QSignalMapper
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence, QAction
 from PySide6.QtWidgets import (
-	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar,
+	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar, QMenu,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
 	QLabel, QLineEdit, QToolButton, QFileDialog,
 	QGroupBox, QProgressBar, QPushButton, QComboBox
 )
+
+# from .settings import TextureSettingsWindow
+
+# FONT_MONO = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
 
 from urllib.parse import unquote_plus, urlparse
 def uri_to_path(uri: str) -> str:
 	return unquote_plus(urlparse(uri).path)
 
 def get_internal_path(filename: str) -> Path:
-	root_path: str
-	if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-		root_path = getattr(sys, '_MEIPASS')
-	else: root_path = '.'
-	return Path(root_path) / filename
+	return get_res() / filename
 
 class QDataComboBox( QComboBox ):
 	def setCurrentData(self, data: Any):
@@ -55,11 +53,8 @@ class RClickToolButton( QToolButton ):
 
 
 class PickableImage( QFrame ):
-	picked = Signal( str, Path, object, name='Picked', arguments=['Kind', 'Path', 'ReturnBack'] )
-	''' Fires when an image has been picked from the filesystem. (Path|None) '''
-
 	name: str
-	kind: str
+	role: ImageRole
 	required: bool
 	path: Path|None = None
 	
@@ -67,10 +62,13 @@ class PickableImage( QFrame ):
 	iconButton: QToolButton
 	icon: QPixmap
 
-	def __init__(self, name: str, kind: str, required: bool, parent: QWidget | None = None, f: Qt.WindowType = Qt.WindowType.Widget) -> None:
+	backend: CoreBackend
+
+	def __init__(self, backend: CoreBackend, name: str, kind: ImageRole, required: bool, parent: QWidget | None = None, f: Qt.WindowType = Qt.WindowType.Widget) -> None:
 		super().__init__(parent, f)
+		self.backend = backend
 		self.name = name
-		self.kind = kind
+		self.role = kind
 		self.required = required
 		self.setAcceptDrops(True)
 
@@ -87,9 +85,9 @@ class PickableImage( QFrame ):
 		self.iconButton.setFixedSize(48, 48)
 		self.iconButton.setIcon(self.icon)
 		self.iconButton.setIconSize(QSize(48, 48))
-		self.iconButton.clicked.connect(self.on_icon_click)
-		self.iconButton.rightClicked.connect(self.on_icon_rclick)
-		self.update_required()
+		self.iconButton.clicked.connect(self.__on_icon_click__)
+		self.iconButton.rightClicked.connect(self.__on_icon_rclick__)
+		self.__update_required__()
 
 		layout.addWidget(self.iconButton)
 		vlayout = QVBoxLayout()
@@ -111,7 +109,7 @@ class PickableImage( QFrame ):
 		self.path_box.setEnabled(False)
 		vlayout.addWidget(self.path_box)
 
-	def update_required(self):
+	def __update_required__(self):
 		if self.required:
 			self.iconButton.setStyleSheet('' if self.path else STYLESHEET_TILE_REQUIRED)
 			self.iconButton.update()
@@ -142,39 +140,43 @@ class PickableImage( QFrame ):
 		event.accept()
 
 		self.path = filePath
-		self.reload()
+		self.__update_meta__()
+
+	def __set_path__(self, path: str):
+		self.path = Path(path)
+		self.__update_meta__()
 	
-	def set_icon(self, img: QImage|None):
+	def __set_icon__(self, img: QImage|None):
 		if img:
 			self.icon = self.icon.fromImage(img)
 			self.iconButton.setIcon(self.icon)
 		else:
 			self.icon.fill(QColor(0, 0, 0, 0))
 			self.iconButton.setIcon(self.icon)
-		log.info(self.kind.capitalize()+' icon updated!')
+		log.info(self.role.capitalize()+' icon updated!')
 
-	def on_icon_click(self):
-		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.kind} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
+	def __on_icon_click__(self):
+		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.name} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
 		if len(fileUrls) == 0: return
-		
-		url = Path(fileUrls[0])
-		self.path = url
-		self.reload()
+		self.__set_path__(fileUrls[0])
+		self.backend.set_role_image(fileUrls[0], self.role)
 
-	def on_icon_rclick(self):
+	def __on_icon_rclick__(self):
 		self.path = None
-		self.reload()
+		self.backend.set_role_image(None, self.role)
+		self.__update_meta__()
 
-	def reload(self):
+	def __update_meta__(self):
+		''' Updates the text and styling for this widget. '''
 		self.iconButton.setToolTip(f'{self.path.name} Right-click to remove' if self.path else '')
 		self.path_box.setText(self.path.name if self.path else '')
-		self.picked.emit(self.kind, self.path, self.set_icon)
-		self.update_required()
+		self.__update_required__()
 
 	@Slot()
-	def from_preset(self, preset: Preset):
-		self.path = preset.get_path(self.kind)
-		self.reload()
+	def on_role_updated(self, role: ImageRole, path: str, qimage: QImage):
+		if role != self.role: return
+		self.__set_path__(path)
+		self.__set_icon__(qimage)
 
 class MainWindow( QMainWindow ):
 	update_from_preset = Signal( Preset, name='UpdateFromPreset' )
@@ -183,28 +185,37 @@ class MainWindow( QMainWindow ):
 	exporting: bool = False
 	watching: bool = False
 
-	watcherCooldown: QTimer
+	watcherTimeout: QTimer
 	watcher: QFileSystemWatcher
+	watcherModifiedFiles: set[str]
+
 	config: AppConfig
 	backend: CoreBackend
 	progressBar: QProgressBar
+	loadRecentMenu: QMenu
+	loadRecentMapper: QSignalMapper
+
+	lastPresetPath: str|None = None
+	lastTargetPath: str|None = None
+	cache: AppCache
 
 	def __init__(self, config: AppConfig, parent=None) -> None:
 		#region init
 		super().__init__(parent)
 
-		self.setWindowTitle(None)
+		self.setWindowTitle()
 
-		self.watcherCooldown = QTimer()
-		self.watcherCooldown.setSingleShot(True)
-		self.watcherCooldown.timeout.connect(self.export)
-		# self.watcherCooldown.timeout.connect(lambda : print('YIPPEE!!'))
+		self.watcherTimeout = QTimer()
+		self.watcherTimeout.setSingleShot(True)
+		self.watcherTimeout.timeout.connect(self.export)
+		self.watcherModifiedFiles = set()
 
 		self.watcher = QFileSystemWatcher(self)
 		self.watcher.fileChanged.connect(self.on_file_changed)
 
 		self.config = config
 		self.backend = CoreBackend()
+		self.cache = load_cache()
 
 		#endregion
 		''' ========================== MENU ========================== '''
@@ -215,18 +226,24 @@ class MainWindow( QMainWindow ):
 
 		self.setMenuBar(menuBar)
 		fileMenu = menuBar.addMenu('File')
-		loadAction = fileMenu.addAction('Load Preset')
+		loadAction = fileMenu.addAction('Open')
 		loadAction.setShortcut(QKeySequence.StandardKey.Open)
 		loadAction.triggered.connect(self.load_preset)
 
-		saveAction = fileMenu.addAction('Save Preset')
+		self.loadRecentMenu = fileMenu.addMenu('Open Recent...')
+		self.loadRecentMapper = QSignalMapper(self)
+		self.loadRecentMapper.mappedString.connect(self.load_preset_recent)
+		self.setupRecentFileMenu()
+
+		saveAction = fileMenu.addAction('Save')
 		saveAction.setShortcut(QKeySequence.StandardKey.Save)
 		saveAction.triggered.connect(self.save_preset)
 		
 		fileMenu.addSeparator()
 
 		self.watchAction = fileMenu.addAction('Watch')
-		self.watchAction.triggered.connect(self.watch)
+		self.watchAction.setCheckable(True)
+		self.watchAction.triggered.connect(self.watch_toggle)
 
 		exportAction = fileMenu.addAction('Export')
 		exportAction.triggered.connect(self.export)
@@ -271,18 +288,17 @@ class MainWindow( QMainWindow ):
 
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
-				widget.picked.connect(self.picked)
-				self.update_from_preset.connect(widget.from_preset)
+				self.backend.role_updated.connect(widget.on_role_updated)
 				parent.addWidget(widget)
 
 		registerWidgets(leftLayout, [
-			PickableImage('Basecolor', 'albedo', True),
-			PickableImage('Roughness', 'roughness', True),
-			PickableImage('Metallic', 'metallic', False),
-			PickableImage('Bumpmap', 'normal', False),
-			PickableImage('Heightmap', 'height', False),
-			PickableImage('Ambient Occlusion', 'ao', False),
-			PickableImage('Emission', 'emit', False)
+			PickableImage(self.backend, 'Basecolor', ImageRole.Albedo, True),
+			PickableImage(self.backend, 'Roughness', ImageRole.Roughness, True),
+			PickableImage(self.backend, 'Metallic', ImageRole.Metallic, False),
+			PickableImage(self.backend, 'Bumpmap', ImageRole.Normal, False),
+			PickableImage(self.backend, 'Heightmap', ImageRole.Height, False),
+			PickableImage(self.backend, 'Ambient Occlusion', ImageRole.AO, False),
+			PickableImage(self.backend, 'Emission', ImageRole.Emit, False)
 		])
 		leftLayout.addStretch(1)
 
@@ -357,36 +373,12 @@ class MainWindow( QMainWindow ):
 			self.backend.scaleTarget = scaleTargetDropdown.itemData(x)
 		scaleTargetDropdown.currentIndexChanged.connect(on_changed_scaleTarget)
 
-
-		# rightLayout.addWidget(QLabel('Material Hint'))
-
-		# self.hintDropdown = hintDropdown = QComboBox()
-		# rightLayout.addWidget(hintDropdown)
-		# for text,data in [
-		# 	('None', None),
-		# 	('Brick', 'brick'),
-		# 	('Concrete', 'concrete'),
-		# 	('Rock', 'rock'),
-		# 	('Metal', 'metal'),
-		# 	('Wood', 'wood'),
-		# 	('Dirt', 'dirt'),
-		# 	('Grass', 'grass'),
-		# 	('Sand', 'sand'),
-		# 	('Water', 'water'),
-		# 	('Ice', 'ice'),
-		# 	('Snow', 'snow'),
-		# 	('Flesh', 'flesh'),
-		# 	('Foliage', 'foliage'),
-		# 	('Glass', 'glass'),
-		# 	('Tile', 'tile'),
-		# 	('Cardboard', 'cardboard'),
-		# 	('Plaster', 'plaster'),
-		# 	('Plastic', 'plastic'),
-		# 	('Rubber', 'rubber'),
-		# 	('Carpet', 'carpet'),
-		# 	('Computer', 'computer'),
-		# ]: hintDropdown.addItem(text, data)
-		# hintDropdown.setCurrentData(None)
+		# rightLayout.addWidget(QLabel('Material Parameters'))
+		# matParamEdit = QPlainTextEdit(lineWrapMode=QPlainTextEdit.LineWrapMode.NoWrap, tabStopDistance=16)
+		# matParamEdit.setFont(FONT_MONO)
+		# matParamEdit.setMinimumSize(10, 10)
+		# matParamEdit.setMaximumSize(50, 50)
+		# rightLayout.addWidget(matParamEdit, 0)
 
 		#endregion
 		''' ========================== FOOTER ========================== '''
@@ -402,7 +394,7 @@ class MainWindow( QMainWindow ):
 
 
 		# TODO: Qt doesn't seem to have a nice way to transfer the text color to an icon.
-		self.revealButton = QPushButton(QPixmap('./res/reveal.svg'), '')
+		self.revealButton = QPushButton(QPixmap(get_internal_path('res/reveal.svg')), '')
 		self.revealButton.setMaximumWidth(32)
 		self.revealButton.setToolTip('Reveal in folder')
 		self.revealButton.setDisabled(True)
@@ -420,16 +412,17 @@ class MainWindow( QMainWindow ):
 		self.setMinimumSize(self.sizeHint())
 		self.resize(600, 450)
 
-	def setWindowTitle(self, subtitle: str|None=None):
+	def setWindowTitle(self, _title: str|None=None):
 		base_title = 'PBR-2-Source v'+__version__
-		if subtitle != None: base_title += ' - '+subtitle
+		if self.watching: base_title += ' (Watching)'
+		if self.target != None: base_title += ' - ' + Path(self.target).name
 		super().setWindowTitle(base_title)
 
-	@Slot()
-	def picked(self, kind: ImageRole, path: Path|None, set_icon):
-		img = self.backend.pick(str(path) if path else None, kind)
-		self.reset_watch()
-		set_icon(img)
+	# @Slot()
+	# def on_image_picked(self, kind: ImageRole, path: Path|None, set_icon):
+	# 	img = self.backend.set_image(str(path) if path else None, kind)
+	# 	self.reset_watch()
+	# 	set_icon(img)
 
 	def pick_target(self, reset=False):
 		if reset:
@@ -440,18 +433,32 @@ class MainWindow( QMainWindow ):
 			return
 
 		log.debug('Picking target')
-		options: Any = {'options': QFileDialog.Option.DontConfirmOverwrite } if not self.config.overwriteVmts else {}
-		targetPath = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', **options)[0]
-		if len(targetPath): self.target = targetPath
+
+		pickOptions = {}
+		if self.config.overwriteVmts == False:
+			pickOptions['options'] = QFileDialog.Option.DontConfirmOverwrite
+	
+		# Initial filename to save to
+		pickPath = Path(self.lastTargetPath or self.lastPresetPath or '')
+		if self.backend.name:
+			pickPath = pickPath.with_name(self.backend.name.rsplit('/', 2)[-1] + '.vmt')
+
+		targetPath, _ = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', dir=str(pickPath), **pickOptions)
+
+		if len(targetPath):
+			self.lastTargetPath = targetPath
+			self.target = targetPath
+			self.backend.pick_vmt(targetPath)
 
 		if self.target:
-			self.setWindowTitle(Path(self.target).name)
 			self.revealButton.setDisabled(False)
-		else:
-			self.setWindowTitle()
+
+		self.setWindowTitle()
+
+	#region Exporting
 
 	@Slot()
-	def export(self):
+	def export(self, *, noCache=True):
 		if self.exporting: return
 		self.exporting = True
 
@@ -459,7 +466,7 @@ class MainWindow( QMainWindow ):
 		if not overwriteVmts:
 			keyModifiers = QApplication.queryKeyboardModifiers()
 			overwriteVmts = bool(keyModifiers & keyModifiers.AltModifier)
-			log.info('Alt key active: VMT overwrite is enabled for this export.')
+			if overwriteVmts: log.info('Alt key active: VMT overwrite is enabled for this export.')
 
 		log.info('Exporting...')
 		self.exportButton.setEnabled(False)
@@ -469,13 +476,11 @@ class MainWindow( QMainWindow ):
 
 		try:
 			self.progressBar.setFormat('Creating material...')
-			material = self.backend.make_material(self.config.reloadOnExport)
+			material = self.backend.make_material(noCache=noCache)
 			self.progressBar.setValue(20)
 
 			if self.target == None: self.pick_target()
 			if self.target == None: raise InterruptedError()
-			
-			targetPath: str = self.target # type: ignore
 
 			def log_callback(msg: str|None, percent: int|None):
 				log.info(f'Export ({self.progressBar.value()}%): {msg}')
@@ -483,16 +488,11 @@ class MainWindow( QMainWindow ):
 				if percent: self.progressBar.setValue(percent)
 				QApplication.processEvents()
 
-			self.backend.pick_vmt(targetPath)
 			self.backend.export(material, log_callback, overwrite_vmt=overwriteVmts)
 			self.progressBar.setValue(100)
 
-			if self.config.hijack:
-				try:
-					cmd = f'mat_reloadmaterial {self.backend.name}'
-					send_engine_command(bytes(cmd, encoding='utf-8'))
-				except BaseException as e:
-					log.error(f'Failed to send hijack command!\n\n{format_exc()}')
+			if self.config.hijackMode:
+				self.backend.send_engine_command(f'mat_reloadmaterial {self.backend.name}')
 	
 		except Exception as e:
 			self.progressBar.setValue(0)
@@ -521,33 +521,32 @@ class MainWindow( QMainWindow ):
 		path = Path(self.target).parent
 		QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
+	#endregion
+	#region Watching
+
 	@Slot()
-	def watch(self):
+	def watch_toggle(self):
 		if not self.watching and self.target == None:
+			self.watchAction.setChecked(False)
 			self.pick_target()
 			if not self.target: return
 
-		self.watching = not self.watching
-		if self.watching:	self.start_watch()
-		else:				self.stop_watch()
-		log.info(f'Watching: {self.watcher.files()}')
-	
+		if self.watching:	self.stop_watch()
+		else:				self.start_watch()
+		log.info(f'Watching {len(self.watcher.files())} files.\n')
+
 	def start_watch(self):
-		self.watchAction.setText('Stop Watching')
-		paths = [x for x in [
-			self.backend.albedoPath,
-			self.backend.roughnessPath,
-			self.backend.metallicPath,
-			self.backend.emitPath,
-			self.backend.aoPath,
-			self.backend.normalPath,
-			self.backend.heightPath,
-		] if x != None]
+		self.watching = True
+		self.watchAction.setChecked(True)
+		paths = [x for x in self.backend.paths.values() if x != None]
 		self.watcher.addPaths(paths)
+		self.setWindowTitle()
 
 	def stop_watch(self):
-		self.watchAction.setText('Watch')
+		self.watching = False
+		self.watchAction.setChecked(False)
 		self.watcher.removePaths(self.watcher.files())
+		self.setWindowTitle()
 
 	def reset_watch(self):
 		if not self.watching: return
@@ -562,46 +561,135 @@ class MainWindow( QMainWindow ):
 		message.exec()
 
 	@Slot()
-	def on_file_changed(self, file: str):
-		assert self.watching, 'SOMETHING HAS GONE VERY WRONG HERE!!'
-		log.info('File changed:', file)
-		self.watcherCooldown.start(500)
+	def on_file_changed(self, _file: str):
+		assert self.watching, 'on_file_changed handler not detatched. Tell a programmer!'
+		if not self.watcherTimeout.isActive():
+			log.info(f'Files changed! Starting timeout...')
+		self.watcherTimeout.start(self.config.watchTimeout)
+
+	#endregion
+	#region Presets
 
 	@Slot()
-	def load_preset(self):
-		selected = QFileDialog.getOpenFileName(self, caption='Loading preset...', filter='JSON Presets (*.json)')[0]
-		if not len(selected): return
+	def load_preset_recent(self, path: str):
+		self.load_preset(path=path)
+
+	@Slot()
+	def load_preset(self, *, path: str|None=None):
+		if path == None:
+			lastPresetPath = str(Path(self.lastPresetPath).parent) if self.lastPresetPath else str(Path.cwd())
+			path = QFileDialog.getOpenFileName(self,
+									caption='Loading preset...',
+									filter='JSON Presets (*.json)',
+									dir=lastPresetPath,
+									)[0]
+
+		if path == None or len(path) == 0:
+			return
 
 		# Reset target path
 		if self.watching: self.stop_watch()
 		self.pick_target(reset=True)
 
-		preset = Preset.load(selected)
+		preset = Preset.load(path)
+
 		self.gameDropdown.setCurrentData(preset.game)
 		self.modeDropdown.setCurrentData(preset.mode)
 		self.normalTypeDropdown.setCurrentData(preset.normalType)
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
-		# self.hintDropdown.setCurrentData(preset.hint)
-		# self.envmapDropdown.setCurrentData(preset.envmap)
+
+		# Keep track of last preset path
+		self.lastPresetPath = path
 
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
+
+		# Append to recent files
+		self.pushRecentFile(path)
 	
 	def save_preset(self):
-		selected = QFileDialog.getSaveFileName(self, caption='Saving preset...', filter='JSON Presets (*.json)')[0]
-		if not len(selected): return
+		presetPath, _ = QFileDialog.getSaveFileName(self,
+									caption='Saving preset...',
+									filter='JSON Presets (*.json)',
+									dir=self.lastPresetPath, # type: ignore
+									)
+		if not len(presetPath): return
+
+		# Keep track of last preset path
+		self.lastPresetPath = presetPath
 		
 		preset = Preset()
 		self.backend.save_preset(preset)
-		preset.save(selected)
+		preset.save(presetPath)
 
-def start_gui():
+	#endregion
+	#region Recents
+
+	def makeRecentFileMenuAction(self, path: str) -> QAction:
+		p = Path(path)
+		rp = str(p.relative_to(p.parent.parent.parent))
+
+		action = QAction(rp, self.loadRecentMenu)
+		self.loadRecentMapper.setMapping(action, path)
+		action.triggered.connect(self.loadRecentMapper.map)
+		return action
+
+	def setupRecentFileMenu(self) -> None:
+		for path in self.cache.recent:
+			self.loadRecentMenu.addAction(self.makeRecentFileMenuAction(path))
+
+	def pushRecentFile(self, path: str) -> None:
+		historyCount = len(self.cache.recent)
+		actionList = self.loadRecentMenu.actions()
+		assert len(actionList) == historyCount, 'File history desync! This should never happen!'
+
+		# If this entry already exists, remove it.
+		for i, file in enumerate(self.cache.recent):
+			if file == path:
+				# If this was the last file loaded, then we don't need to change anything. Return early!
+				if i == 0: return
+				self.cache.recent.pop(i)
+				self.loadRecentMapper.removeMappings(actionList[i])
+				self.loadRecentMenu.removeAction(actionList[i])
+				break
+
+		# Append to start of list
+		action = self.makeRecentFileMenuAction(path)
+		if len(actionList) == 0:
+			self.loadRecentMenu.addAction(action)
+			self.cache.recent.append(path)
+		else:
+			self.loadRecentMenu.insertAction(actionList[0], action)
+			self.cache.recent.insert(0, path)
+
+		# Re-fetch lists so we don't try to delete anything twice
+		historyCount = len(self.cache.recent)
+		actionList = self.loadRecentMenu.actions()
+
+		# Remove history if we reach a limit
+		if historyCount > 10:
+			self.loadRecentMenu.removeAction(actionList[-1])
+			self.cache.recent.pop(-1)
+
+	def closeEvent(self, event: QCloseEvent) -> None:
+		log.info('Shutting down...')
+		try:
+			log.debug('Saving app cache...')
+			save_cache(self.cache)
+
+		except Exception as e:
+			log.error(f'An error occurred during shutdown! Traceback:\n{format_exc()}')
+
+		log.info('Goodbye!')
+		event.accept()
+
+	#endregion
+
+
+def start_gui(args):
 	app: QApplication = QApplication()
-	app.setApplicationVersion(__version__)	
-	app_config = load_config()
-
-	if '--style-fusion' in argv: app_config.appTheme = AppTheme.Fusion
-	if '--style-native' in argv: app_config.appTheme = AppTheme.Native
+	app.setApplicationVersion(__version__)
+	app_config = load_config(True, pathOverride=args.config)
 
 	match app_config.appTheme:
 		case AppTheme.Default:
@@ -629,9 +717,10 @@ def start_gui():
 	app_icon.loadFromData(app_icon_file)
 	app.setWindowIcon(app_icon)
 
+	# settings = TextureSettingsWindow()
+	# settings.show()
+
 	win = MainWindow( app_config )
 	win.show()
-	app.exec()
 
-if __name__ == '__main__':
-	start_gui()
+	app.exec()
