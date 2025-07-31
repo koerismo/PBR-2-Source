@@ -1,6 +1,6 @@
 from ..version import __version__
 import logging as log
-from ..core.config import AppConfig, AppTheme, get_root, load_config, AppCache, load_cache, save_cache
+from ..core.config import AppConfig, AppTheme, get_res, load_config, AppCache, load_cache, save_cache
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
 from ..core.preset import Preset
@@ -32,7 +32,7 @@ def uri_to_path(uri: str) -> str:
 	return unquote_plus(urlparse(uri).path)
 
 def get_internal_path(filename: str) -> Path:
-	return get_root() / filename
+	return get_res() / filename
 
 class QDataComboBox( QComboBox ):
 	def setCurrentData(self, data: Any):
@@ -441,7 +441,7 @@ class MainWindow( QMainWindow ):
 		# Initial filename to save to
 		pickPath = Path(self.lastTargetPath or self.lastPresetPath or '')
 		if self.backend.name:
-			pickPath = pickPath.with_name(self.backend.name.rsplit('/', 2)[-1] + pickPath.suffix)
+			pickPath = pickPath.with_name(self.backend.name.rsplit('/', 2)[-1] + '.vmt')
 
 		targetPath, _ = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', dir=str(pickPath), **pickOptions)
 
@@ -577,10 +577,11 @@ class MainWindow( QMainWindow ):
 	@Slot()
 	def load_preset(self, *, path: str|None=None):
 		if path == None:
+			lastPresetPath = str(Path(self.lastPresetPath).parent) if self.lastPresetPath else str(Path.cwd())
 			path = QFileDialog.getOpenFileName(self,
 									caption='Loading preset...',
 									filter='JSON Presets (*.json)',
-									dir=self.lastPresetPath, # type: ignore
+									dir=lastPresetPath,
 									)[0]
 
 		if path == None or len(path) == 0:

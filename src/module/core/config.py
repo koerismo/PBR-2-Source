@@ -22,12 +22,14 @@ def get_config():
 ''' Get application root path '''
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-	root_path = Path(getattr(sys, '_MEIPASS')).parent
+	res_path = Path(getattr(sys, '_MEIPASS'))
+	root_path = res_path.parent
 else:
-	root_path = Path('./').resolve()
+	res_path = Path('./').resolve()
+	root_path = res_path
 
-def get_root() -> Path:
-	return root_path
+def get_res() -> Path:
+	return res_path
 
 ''' Config structures '''
 
