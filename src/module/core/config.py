@@ -5,7 +5,9 @@ from dataclasses import dataclass, asdict, field, replace
 from pathlib import Path
 import logging as log
 import sys, json
+
 from sourcepp import vtfpp
+ResizeFilter = vtfpp.ImageConversion.ResizeFilter
 
 from ..version import __version__
 
@@ -47,7 +49,7 @@ class TargetConfig():
 	lossy: bool
 	zip: bool = False
 	mipmaps: int = -1
-	mipmapFilter: int = vtfpp.ImageConversion.ResizeFilter.KAISER.value
+	mipmapFilter: int = ResizeFilter.NICE.value
 	flags: int = 0
 	# scale: float = 1.0
 
@@ -86,7 +88,7 @@ class AppConfig():
 	''' The timeout (milliseconds) to use when listening for input changes before initiating an export. '''
 	targets: dict[TargetRole, TargetConfig] = field(default_factory=lambda: {
 		TargetRole.Basecolor:	TargetConfig("_basecolor.vtf", True),
-		TargetRole.Bumpmap:		TargetConfig("_bump.vtf", False),
+		TargetRole.Bumpmap:		TargetConfig("_bump.vtf", False, mipmapFilter=ResizeFilter.BILINEAR.value),
 		TargetRole.Emit:		TargetConfig("_emit.vtf", False),
 		TargetRole.PhongExp:	TargetConfig("_phongexp.vtf", False),
 		TargetRole.EnvmapMask:	TargetConfig("_envmask.vtf", False),
