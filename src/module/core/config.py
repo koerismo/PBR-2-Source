@@ -175,6 +175,8 @@ def make_config():
 @dataclass
 class AppCache():
 	recent: list[str] = field(default_factory=lambda: [])
+	lastPresetPath: str|None = None
+	lastTargetPath: str|None = None
 
 def load_cache() -> AppCache:
 	cache_path = root_path / CACHE_NAME

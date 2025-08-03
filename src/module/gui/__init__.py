@@ -190,8 +190,6 @@ class MainWindow( QMainWindow ):
 	loadRecentMenu: QMenu
 	loadRecentMapper: QSignalMapper
 
-	lastPresetPath: str|None = None
-	lastTargetPath: str|None = None
 	cache: AppCache
 
 	def __init__(self, config: AppConfig, parent=None) -> None:
@@ -253,7 +251,7 @@ class MainWindow( QMainWindow ):
 			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, Qt.Key.Key_E)),
 			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
 			])
-		
+
 		#endregion
 		''' ========================== LAYOUT ========================== '''
 		#region layout
@@ -434,7 +432,7 @@ class MainWindow( QMainWindow ):
 			pickOptions['options'] = QFileDialog.Option.DontConfirmOverwrite
 	
 		# Initial filename to save to
-		pickPath = Path(self.lastTargetPath or self.lastPresetPath or '')
+		pickPath = Path(self.cache.lastTargetPath or self.cache.lastPresetPath or '')
 		if self.backend.name:
 			pickPath = pickPath.with_name(self.backend.name.rsplit('/', 2)[-1] + '.vmt')
 		elif pickPath.name:
@@ -443,7 +441,7 @@ class MainWindow( QMainWindow ):
 		targetPath, _ = QFileDialog.getSaveFileName(self, caption='Saving material...', filter='Valve Material (*.vmt)', dir=str(pickPath), **pickOptions)
 
 		if len(targetPath):
-			self.lastTargetPath = targetPath
+			self.cache.lastTargetPath = targetPath
 			self.target = targetPath
 			self.backend.pick_vmt(targetPath)
 
@@ -574,7 +572,7 @@ class MainWindow( QMainWindow ):
 	@Slot()
 	def load_preset(self, *, path: str|None=None):
 		if path == None:
-			lastPresetPath = str(Path(self.lastPresetPath).parent) if self.lastPresetPath else str(Path.cwd())
+			lastPresetPath = str(Path(self.cache.lastPresetPath).parent) if self.cache.lastPresetPath else str(Path.cwd())
 			path = QFileDialog.getOpenFileName(self,
 									caption='Loading preset...',
 									filter='JSON Presets (*.json)',
@@ -596,7 +594,7 @@ class MainWindow( QMainWindow ):
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
 
 		# Keep track of last preset path
-		self.lastPresetPath = path
+		self.cache.lastPresetPath = path
 
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
@@ -608,12 +606,12 @@ class MainWindow( QMainWindow ):
 		presetPath, _ = QFileDialog.getSaveFileName(self,
 									caption='Saving preset...',
 									filter='JSON Presets (*.json)',
-									dir=self.lastPresetPath, # type: ignore
+									dir=self.cache.lastPresetPath, # type: ignore
 									)
 		if not len(presetPath): return
 
 		# Keep track of last preset path
-		self.lastPresetPath = presetPath
+		self.cache.lastPresetPath = presetPath
 		
 		preset = Preset()
 		self.backend.save_preset(preset)

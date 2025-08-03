@@ -64,7 +64,7 @@ class QtIOBackend(IOBackend):
 				return image_to_qimage(load_vtf(file))
 			
 		im = QImage()
-		im.load(str(path))
+		assert im.load(str(path)), 'Failed to load image!'
 		return im
 
 	@staticmethod
