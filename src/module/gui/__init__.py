@@ -1,5 +1,6 @@
 from ..version import __version__
 import logging as log
+import uuid
 from ..core.config import AppConfig, AppTheme, get_res, load_config, AppCache, load_cache, save_cache
 from ..core.material import GameTarget, MaterialMode, NormalType
 from ..core.io.icns import ICNS
@@ -14,13 +15,13 @@ from traceback import format_exc
 from datetime import datetime
 
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl, QSignalMapper
+from PySide6.QtCore import Qt, Signal, Slot, QSize, QMimeData, QKeyCombination, QFileSystemWatcher, QTimer, QUrl, QSignalMapper, QJsonValue, QModelIndex
 from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QMouseEvent, QImage, QPixmap, QColor, QDrag, QDesktopServices, QKeySequence, QAction
 from PySide6.QtWidgets import (
 	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar, QMenu,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
 	QLabel, QLineEdit, QToolButton, QFileDialog,
-	QGroupBox, QProgressBar, QPushButton, QComboBox
+	QGroupBox, QProgressBar, QPushButton, QComboBox, QListWidget, QListWidgetItem
 )
 
 # from .settings import TextureSettingsWindow
@@ -33,6 +34,21 @@ def uri_to_path(uri: str) -> str:
 
 def get_internal_path(filename: str) -> Path:
 	return get_res() / filename
+
+def get_default_profile_data() -> dict[str, QJsonValue]:
+	data: dict[str, QJsonValue] = {}
+	data[ImageRole.Albedo] = QJsonValue("")
+	data[ImageRole.Roughness] = QJsonValue("")
+	data[ImageRole.Metallic] = QJsonValue("")
+	data[ImageRole.Normal] = QJsonValue("")
+	data[ImageRole.Height] = QJsonValue("")
+	data[ImageRole.AO] = QJsonValue("")
+	data[ImageRole.Emit] = QJsonValue("")
+	data["game"] = QJsonValue(Preset.game)
+	data["mode"] = QJsonValue(Preset.mode)
+	data["bumptype"] = QJsonValue(Preset.normalType)
+	data["targetscale"] = QJsonValue(Preset.scaleTarget)
+	return data
 
 class QDataComboBox( QComboBox ):
 	def setCurrentData(self, data: Any):
@@ -186,12 +202,13 @@ class MainWindow( QMainWindow ):
 
 	config: AppConfig
 	backend: CoreBackend
+	profileList: QListWidget
 	progressBar: QProgressBar
 	loadRecentMenu: QMenu
 	loadRecentMapper: QSignalMapper
-
+	profileData: dict[str, dict[str, QJsonValue]]
 	cache: AppCache
-
+	
 	def __init__(self, config: AppConfig, parent=None) -> None:
 		#region init
 		super().__init__(parent)
@@ -206,12 +223,14 @@ class MainWindow( QMainWindow ):
 		self.watcher = QFileSystemWatcher(self)
 		self.watcher.fileChanged.connect(self.on_file_changed)
 
+		self.profileData = dict()
+
 		self.config = config
 		self.backend = CoreBackend()
 		self.cache = load_cache()
 
 		#endregion
-		''' ========================== MENU ========================== '''
+		''' ========================== MENU ============================ '''
 		#region menu
 
 		menuBar = QMenuBar(self)
@@ -272,11 +291,17 @@ class MainWindow( QMainWindow ):
 		rightLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
 		inner.addWidget(right)
 
+		profiles = QGroupBox(title='Profiles')
+		profilesLayout = QVBoxLayout(profiles)
+		profilesLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+		inner.addWidget(profiles)
+
+
 		footer = QHBoxLayout()
 		root.addLayout(footer)
 
 		# endregion
-		''' ========================== LEFT ========================== '''
+		''' ========================== LEFT ============================ '''
 		#region left
 
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
@@ -296,7 +321,7 @@ class MainWindow( QMainWindow ):
 		leftLayout.addStretch(1)
 
 		#endregion
-		''' ========================== RIGHT ========================== '''
+		''' ========================== RIGHT =========================== '''
 		#region right
 
 		rightLayout.addWidget(QLabel('Game'))
@@ -313,6 +338,8 @@ class MainWindow( QMainWindow ):
 
 		def on_changed_game(x: int):
 			self.backend.game = gameDropdown.itemData(x)
+			contents = str(self.profileList.currentItem().data(Qt.ItemDataRole.UserRole))
+			self.profileData[contents]["game"] = QJsonValue(self.backend.game)
 		gameDropdown.currentIndexChanged.connect(on_changed_game)
 
 		rightLayout.addWidget(QLabel('Mode'))
@@ -334,6 +361,8 @@ class MainWindow( QMainWindow ):
 	
 		def on_changed_mode(x: int):
 			self.backend.mode = modeDropdown.itemData(x)
+			contents = str(self.profileList.currentItem().data(Qt.ItemDataRole.UserRole))
+			self.profileData[contents]["mode"] = QJsonValue(self.backend.mode)
 		modeDropdown.currentIndexChanged.connect(on_changed_mode)
 
 		rightLayout.addWidget(QLabel('Bumpmap Type'))
@@ -347,6 +376,8 @@ class MainWindow( QMainWindow ):
 
 		def on_changed_normalType(x: int):
 			self.backend.normalType = normalTypeDropdown.itemData(x)
+			contents = str(self.profileList.currentItem().data(Qt.ItemDataRole.UserRole))
+			self.profileData[contents]["bumptype"] = QJsonValue(self.backend.normalType)
 		normalTypeDropdown.currentIndexChanged.connect(on_changed_normalType)
 
 		rightLayout.addWidget(QLabel('Target Scale'))
@@ -364,14 +395,85 @@ class MainWindow( QMainWindow ):
 
 		def on_changed_scaleTarget(x: int):
 			self.backend.scaleTarget = scaleTargetDropdown.itemData(x)
+			contents = str(self.profileList.currentItem().data(Qt.ItemDataRole.UserRole))
+			self.profileData[contents]["targetscale"] = QJsonValue(self.backend.scaleTarget)
 		scaleTargetDropdown.currentIndexChanged.connect(on_changed_scaleTarget)
 
 		# rightLayout.addWidget(QLabel('Material Parameters'))
-		# matParamEdit = QPlainTextEdit(lineWrapMode=QPlainTextEdit.LineWrapMode.NoWrap, tabStopDistance=16)
+		# matParamEdit = QPlainTextEdit(lineWrapMode=QPlainTextEdit.LineWrapMode.NoWrap, tabstopDistance=16)
 		# matParamEdit.setFont(FONT_MONO)
 		# matParamEdit.setMinimumSize(10, 10)
 		# matParamEdit.setMaximumSize(50, 50)
 		# rightLayout.addWidget(matParamEdit, 0)
+
+		#endregion
+		''' ========================== PROFILES ======================== '''
+		#region profiles
+		
+
+		self.profileList = QListWidget(self)
+
+		profilesLayout.addWidget(self.profileList)
+
+		addRemoveButtonLayout = QHBoxLayout()
+		addProfileButton = QPushButton("Add",self)
+		addRemoveButtonLayout.addWidget(addProfileButton)
+		removeProfileButton = QPushButton("Remove",self)
+		addRemoveButtonLayout.addWidget(removeProfileButton)
+		profilesLayout.addLayout(addRemoveButtonLayout)
+
+		def on_backend_role_updated(role: ImageRole, path: str, qimage: QImage):
+			currentChangedItem = self.profileList.currentItem()
+			if currentChangedItem == None:
+				return
+			itemUUID = str(currentChangedItem.data(Qt.ItemDataRole.UserRole))
+			heldData = self.profileData[itemUUID]
+			heldData[role] = QJsonValue(path)
+
+		self.backend.role_updated.connect(on_backend_role_updated)
+
+		def on_add_button_pressed():
+			listItem = QListWidgetItem(self.profileList)
+			listItem.setFlags(listItem.flags() | Qt.ItemFlag.ItemIsEditable)
+			listItem.setText("Untitled")
+			randID = str(uuid.uuid4())
+			listItem.setData(Qt.ItemDataRole.UserRole, randID)
+			self.profileData[randID] = get_default_profile_data()
+			self.profileList.setCurrentRow(self.profileList.count() - 1)
+
+		addProfileButton.clicked.connect(on_add_button_pressed)
+
+		def on_changed_current_item():
+			currentChangedItem = self.profileList.currentItem()
+			left.setDisabled(currentChangedItem == None)
+			right.setDisabled(currentChangedItem == None)
+			removeProfileButton.setDisabled(currentChangedItem == None)
+			if currentChangedItem == None:
+				return
+			itemUUID = str(currentChangedItem.data(Qt.ItemDataRole.UserRole))
+			heldData = self.profileData[itemUUID]
+			gameDropdown.setCurrentData(heldData["game"])
+			modeDropdown.setCurrentData(heldData["mode"])
+			normalTypeDropdown.setCurrentData(heldData["bumptype"])
+			scaleTargetDropdown.setCurrentData(heldData["targetscale"])
+
+			for key in ImageRole:
+				keyval = heldData[key].toString()
+				if keyval == "" and (self.backend.get_role_path(key) == "" or self.backend.get_role_path(key) == None):
+					continue
+				self.backend.set_role_image(keyval, key)
+				pass
+
+		self.profileList.itemSelectionChanged.connect(on_changed_current_item)
+
+		def on_remove_button_pressed():
+			removedItem = self.profileList.takeItem(self.profileList.currentRow())
+			itemUUID = str(removedItem.data(Qt.ItemDataRole.UserRole))
+			self.profileData.pop(itemUUID)
+
+		removeProfileButton.pressed.connect(on_remove_button_pressed)
+
+		on_changed_current_item()
 
 		#endregion
 		''' ========================== FOOTER ========================== '''
@@ -398,6 +500,10 @@ class MainWindow( QMainWindow ):
 		self.exportButton = QPushButton('Export As...')
 		self.exportButton.clicked.connect(self.export_as)
 		footer.addWidget(self.exportButton)
+
+		# self.exportButton = QPushButton('Export All As...')
+		# self.exportButton.clicked.connect(self.export_as)
+		# footer.addWidget(self.exportButton)
 		
 		#endregion
 

@@ -99,7 +99,7 @@ class CoreBackend(QObject):
 		''' Loads the specified path and sets the specified backend image. This method emits the image_updated signal! '''
 		conv: tuple[QImage, Image] | tuple[None, None] = (None, None)
 
-		if path:
+		if path and path != "":
 			# Load and cache image
 			conv = self.__load_image__(path)
 			self.images[role] = conv[1]
@@ -262,3 +262,6 @@ class CoreBackend(QObject):
 				sock.send((cmd + '\n').encode())
 				sock.close()
 				return True
+
+			case _:
+				return False
