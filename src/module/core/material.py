@@ -52,11 +52,12 @@ class MaterialMode(IntEnum):
 class GameTarget(IntEnum):
 	V2007 = 1	# EP2, Portal, TF2
 	VGMOD = 2	# Garry's Mod
-	V2011 = 3	# Alien Swarm, Portal 2
-	V2023 = 4	# CS:GO, Strata Source
+	V2011 = 3	# Alien Swarm, Portal 2, CS:GO
+	V2023 = 4	# Strata Source
 
 	@staticmethod
 	def vtf_version(target: 'GameTarget'):
+		if target >= GameTarget.V2023: return 6
 		if target >= GameTarget.V2011: return 5
 		if target <= GameTarget.V2007: return 2
 		return 3
