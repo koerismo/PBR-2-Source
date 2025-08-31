@@ -308,7 +308,7 @@ class MainWindow( QMainWindow ):
 			('Portal 2 / Alien Swarm', GameTarget.V2011),
 			('Garry\'s Mod', GameTarget.VGMOD),
 			('CS:GO', GameTarget.V2023),
-			('Strata', GameTarget.V2025),
+			('Strata Source', GameTarget.V2025),
 		]: gameDropdown.addItem(text, data)
 		gameDropdown.setCurrentData(Preset.game)
 
