@@ -232,7 +232,7 @@ class CoreBackend(QObject):
 			callback(f'Writing textures... [{i+1}/{textureCount}]', 60 + int((i+1) / textureCount * 40))
 
 		if shouldWriteVmt:
-			callback(f'Finished exporting {materialName}.vmt!', 100)
+			callback(f'Finished exporting {materialName}!', 100)
 		else:
 			callback(f'Finished exporting {materialName}_*.vtf!', 100)
 
