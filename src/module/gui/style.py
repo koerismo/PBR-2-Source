@@ -11,7 +11,7 @@ QLabel#hint {
 '''
 
 STYLESHEET = STYLESHEET_MIN + '''
-QMainWindow {
+QMainWindow, QMessageBox {
 	background-color: #272727;
 }
 
@@ -21,6 +21,12 @@ QMainWindow {
 	color: #ccc;
 }
 
+QMenuBar, QMenuBar QMenu, QComboBox, QComboBox QAbstractItemView {
+	background-color: #333;
+	selection-background-color: palette(link);
+	selection-color: #fff;
+}
+
 QGroupBox {
 	background-color: #333;
 	border: none;
@@ -28,8 +34,8 @@ QGroupBox {
 }
 
 QGroupBox::title {
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
+	subcontrol-origin: margin;
+	subcontrol-position: top left;
 	color: #999;
 }
 
@@ -80,12 +86,12 @@ QPushButton:disabled {
 }
 
 QProgressBar {
-    border: 1px solid #333;
+	border: 1px solid #333;
 	background-color: #282828;
-    border-radius: 0px;
+	border-radius: 0px;
 }
 
 QProgressBar::chunk {
-    background-color: #2471b5;
+	background-color: #2471b5;
 }
 '''
