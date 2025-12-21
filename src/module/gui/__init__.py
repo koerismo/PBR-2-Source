@@ -19,7 +19,7 @@ from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QMouseEvent, QImage, QPi
 from PySide6.QtWidgets import (
 	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar, QMenu,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
-	QLabel, QLineEdit, QToolButton, QFileDialog, QDialogButtonBox,
+	QLabel, QLineEdit, QToolButton, QFileDialog,
 	QGroupBox, QProgressBar, QPushButton, QComboBox
 )
 
@@ -269,6 +269,10 @@ class MainWindow( QMainWindow ):
 			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
 			])
 
+		presetMenu = menuBar.addMenu('View')
+		advancedToggle = presetMenu.addAction('Advanced')
+		advancedToggle.setCheckable(True)
+
 		#endregion
 		''' ========================== LAYOUT ========================== '''
 		#region layout
@@ -332,6 +336,7 @@ class MainWindow( QMainWindow ):
 
 		def on_changed_game(x: int):
 			self.backend.game = gameDropdown.itemData(x)
+			self.mark_dirty()
 		gameDropdown.currentIndexChanged.connect(on_changed_game)
 
 		rightLayout.addWidget(QLabel('Mode'))
@@ -353,6 +358,7 @@ class MainWindow( QMainWindow ):
 	
 		def on_changed_mode(x: int):
 			self.backend.mode = modeDropdown.itemData(x)
+			self.mark_dirty()
 		modeDropdown.currentIndexChanged.connect(on_changed_mode)
 
 		rightLayout.addWidget(QLabel('Bumpmap Type'))
@@ -366,6 +372,7 @@ class MainWindow( QMainWindow ):
 
 		def on_changed_normalType(x: int):
 			self.backend.normalType = normalTypeDropdown.itemData(x)
+			self.mark_dirty()
 		normalTypeDropdown.currentIndexChanged.connect(on_changed_normalType)
 
 		rightLayout.addWidget(QLabel('Target Scale'))
@@ -383,6 +390,7 @@ class MainWindow( QMainWindow ):
 
 		def on_changed_scaleTarget(x: int):
 			self.backend.scaleTarget = scaleTargetDropdown.itemData(x)
+			self.mark_dirty()
 		scaleTargetDropdown.currentIndexChanged.connect(on_changed_scaleTarget)
 
 		# rightLayout.addWidget(QLabel('Material Parameters'))
