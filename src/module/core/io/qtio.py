@@ -117,8 +117,8 @@ class QtIOBackend(IOBackend):
 		if mipmaps != -1:	vtf.mip_count = mipmaps
 		else:				vtf.set_recommended_mip_count()
 
-		vtf.compute_mips()
-		vtf.set_format(target_format)
+		vtf.compute_mips(mipmapFilter)
+		vtf.set_format(target_format, quality=1)
 
 		if is_strata and zip:
 			vtf.compression_level = -1
