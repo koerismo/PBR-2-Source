@@ -76,7 +76,7 @@ class QtIOBackend(IOBackend):
 		return qimage_to_image(QtIOBackend.load_qimage(path))
 
 	@staticmethod
-	def save(image: Image, path: str | Path, version: int=4, lossy: bool=True, zip: bool=False, flags: int=0, mipmaps: int=-1, mipmapFilter: int=0, **kwargs) -> bool:
+	def save(image: Image, path: str | Path, version=4, lossy=True, zip=False, flags=0, mipmaps=-1, mipmapFilter=vtfpp.ImageConversion.ResizeFilter.DEFAULT, **kwargs) -> bool:
 		height, width, bands = image.data.shape
 
 		path = Path(path)
@@ -97,11 +97,11 @@ class QtIOBackend(IOBackend):
 			case (4, 'uint8'):
 				format = ImageFormats.RGBA8888
 				if lossy: target_format = ImageFormats.BC7 if is_strata else ImageFormats.DXT5
-				flags |= vtfpp.VTF.MULTI_BIT_ALPHA.value
+				flags |= vtfpp.VTF.Flags.V0_MULTI_BIT_ALPHA.value
 			case (4, 'float16'):
 				format = ImageFormats.RGBA16161616F
 				if lossy and is_strata: target_format = ImageFormats.BC6H
-				flags |= vtfpp.VTF.MULTI_BIT_ALPHA.value
+				flags |= vtfpp.VTF.Flags.V0_MULTI_BIT_ALPHA.value
 
 		if format == None:
 			raise TypeError(f"Could not match format {image.data.dtype}x{bands}!")
@@ -110,7 +110,7 @@ class QtIOBackend(IOBackend):
 			target_format = format
 
 		vtf = vtfpp.VTF()
-		vtf.set_image(image.data.tobytes('C'), format, width, height, mipmapFilter if mipmapFilter != -1 else vtfpp.ImageConversion.ResizeFilter.DEFAULT)
+		vtf.set_image(image.data.tobytes('C'), format, width, height, mipmapFilter)
 		vtf.version = version
 		vtf.flags = flags
 

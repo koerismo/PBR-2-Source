@@ -246,6 +246,7 @@ class CoreBackend(QObject):
 			case HijackMode.Windows:
 				if sys.platform == 'win32':
 					gi = gamepp.GameInstance.find()
+					if gi == None: return False
 					gi.command(cmd)
 					return True
 				else:

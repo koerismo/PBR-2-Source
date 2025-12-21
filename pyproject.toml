@@ -8,5 +8,5 @@ dependencies = [
     "numpy>=1.26.0",
     "pyinstaller>=6.9.0",
     "pyside6>=6.5.3",
-    "sourcepp>=2025.7.27",
+    "sourcepp>=2025.12.4",
 ]

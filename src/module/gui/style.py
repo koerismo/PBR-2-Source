@@ -23,7 +23,7 @@ QMainWindow, QMessageBox {
 
 QMenuBar, QMenuBar QMenu, QComboBox, QComboBox QAbstractItemView {
 	background-color: #333;
-	selection-background-color: palette(link);
+	selection-background-color: palette(highlight);
 	selection-color: #fff;
 }
 

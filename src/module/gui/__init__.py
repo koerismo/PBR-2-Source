@@ -219,11 +219,16 @@ class MainWindow( QMainWindow ):
 
 		self.setMenuBar(menuBar)
 		fileMenu = menuBar.addMenu('File')
-		loadAction = fileMenu.addAction('Open')
+
+		createAction = fileMenu.addAction('New')
+		createAction.setShortcut(QKeySequence.StandardKey.New)
+		createAction.triggered.connect(self.new_preset)
+
+		loadAction = fileMenu.addAction('Open...')
 		loadAction.setShortcut(QKeySequence.StandardKey.Open)
 		loadAction.triggered.connect(self.load_preset)
 
-		self.loadRecentMenu = fileMenu.addMenu('Open Recent...')
+		self.loadRecentMenu = fileMenu.addMenu('Open Recent')
 		self.loadRecentMapper = QSignalMapper(self)
 		self.loadRecentMapper.mappedString.connect(self.load_preset_recent)
 		self.setupRecentFileMenu()
@@ -412,12 +417,6 @@ class MainWindow( QMainWindow ):
 		if self.target != None: base_title += ' - ' + Path(self.target).name
 		super().setWindowTitle(base_title)
 
-	# @Slot()
-	# def on_image_picked(self, kind: ImageRole, path: Path|None, set_icon):
-	# 	img = self.backend.set_image(str(path) if path else None, kind)
-	# 	self.reset_watch()
-	# 	set_icon(img)
-
 	def pick_target(self, reset=False):
 		if reset:
 			log.debug('Resetting target')
@@ -567,42 +566,45 @@ class MainWindow( QMainWindow ):
 	#region Presets
 
 	@Slot()
+	def new_preset(self):
+		self.load_preset(preset=Preset())
+
+	@Slot()
 	def load_preset_recent(self, path: str):
 		self.load_preset(path=path)
 
 	@Slot()
-	def load_preset(self, *, path: str|None=None):
-		if path == None:
-			lastPresetPath = str(Path(self.cache.lastPresetPath).parent) if self.cache.lastPresetPath else str(Path.cwd())
-			path = QFileDialog.getOpenFileName(self,
-									caption='Loading preset...',
-									filter='JSON Presets (*.json)',
-									dir=lastPresetPath,
-									)[0]
+	def load_preset(self, *, preset: Preset|None=None, path: str|None=None):
+		if preset == None:
+			if path == None:
+				lastPresetPath = str(Path(self.cache.lastPresetPath).parent) if self.cache.lastPresetPath else str(Path.cwd())
+				path = QFileDialog.getOpenFileName(self,
+										caption='Loading preset...',
+										filter='JSON Presets (*.json)',
+										dir=lastPresetPath,
+										)[0]
 
-		if path == None or len(path) == 0:
-			return
+			if path == None or len(path) == 0:
+				return
 
-		# Reset target path
-		if self.watching: self.stop_watch()
-		self.pick_target(reset=True)
-
-		preset = Preset.load(path)
+			# Reset target path
+			if self.watching: self.stop_watch()
+			self.pick_target(reset=True)
+			preset = Preset.load(path)
 
 		self.gameDropdown.setCurrentData(preset.game)
 		self.modeDropdown.setCurrentData(preset.mode)
 		self.normalTypeDropdown.setCurrentData(preset.normalType)
 		self.scaleTargetDropdown.setCurrentData(preset.scaleTarget)
 
-		# Keep track of last preset path
-		self.cache.lastPresetPath = path
-
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
 
 		# Append to recent files
-		self.pushRecentFile(path)
-	
+		if path:
+			self.pushRecentFile(path)
+			self.cache.lastPresetPath = path
+
 	def save_preset(self):
 		presetPath, _ = QFileDialog.getSaveFileName(self,
 									caption='Saving preset...',
@@ -613,7 +615,7 @@ class MainWindow( QMainWindow ):
 
 		# Keep track of last preset path
 		self.cache.lastPresetPath = presetPath
-		
+
 		preset = Preset()
 		self.backend.save_preset(preset)
 		preset.save(presetPath)

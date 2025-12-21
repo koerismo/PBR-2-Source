@@ -6,7 +6,7 @@ class Preset():
 	paths: dict[str, Path]
 	name: str | None = None
 	game: GameTarget = GameTarget.V2011
-	mode: MaterialMode = MaterialMode.PBRModel
+	mode: MaterialMode = MaterialMode.PhongEnvmap
 	normalType: NormalType = NormalType.DX
 	scaleTarget: int = 0
 

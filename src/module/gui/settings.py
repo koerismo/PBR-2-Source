@@ -1,9 +1,9 @@
 from typing import Any, Literal
-from enum import IntEnum
+from enum import IntEnum, Enum
 from PySide6.QtWidgets import QWidget, QGridLayout, QLineEdit, QLabel, QVBoxLayout, QGroupBox, QCheckBox, QComboBox
 from PySide6.QtCore import Qt, Slot, QSignalMapper
 from PySide6.QtGui import QIntValidator, QDoubleValidator
-from ..core.config import AppConfig, TargetRole, TargetConfig, get_config
+from ..core.config import TargetRole, TargetConfig, get_config
 from ..core.enums import ImageFlags
 
 from sourcepp import vtfpp
@@ -67,7 +67,7 @@ class QBoundToggleEdit(BoundEdit, QCheckBox):
 		self.setValue(self.isChecked())
 
 class QBoundComboEdit(BoundEdit, QComboBox):
-	def __init__(self, obj: Any, key: str, enum: type[IntEnum]):
+	def __init__(self, obj: Any, key: str, enum: type[Enum]):
 		super().__init__(obj, key)
 
 		self.enum = enum
