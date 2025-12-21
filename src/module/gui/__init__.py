@@ -19,7 +19,7 @@ from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QMouseEvent, QImage, QPi
 from PySide6.QtWidgets import (
 	QWidget, QMainWindow, QFrame, QApplication, QMessageBox, QMenuBar, QMenu,
 	QBoxLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
-	QLabel, QLineEdit, QToolButton, QFileDialog,
+	QLabel, QLineEdit, QToolButton, QFileDialog, QDialogButtonBox,
 	QGroupBox, QProgressBar, QPushButton, QComboBox
 )
 
@@ -53,6 +53,10 @@ class RClickToolButton( QToolButton ):
 
 
 class PickableImage( QFrame ):
+
+	# This event is triggered when this image is set or reset by the user.
+	on_user_modified = Signal( ImageRole, name='UserModified' )
+
 	name: str
 	role: ImageRole
 	required: bool
@@ -139,6 +143,7 @@ class PickableImage( QFrame ):
 		if not filePath.is_file(): return
 		event.accept()
 		self.backend.set_role_image(rawFilePath, self.role)
+		self.on_user_modified.emit(self.role)
 
 	def __set_path__(self, path: str):
 		self.path = Path(path)
@@ -157,9 +162,11 @@ class PickableImage( QFrame ):
 		fileUrls = QFileDialog.getOpenFileNames(self, caption=f'Selecting {self.name} image', filter='Images (*.png *.jpg *.jpeg *.bmp *.tga *.tiff *.hdr)')[0]
 		if len(fileUrls) == 0: return
 		self.backend.set_role_image(fileUrls[0], self.role)
+		self.on_user_modified.emit(self.role)
 
 	def __on_icon_rclick__(self):
 		self.backend.set_role_image(None, self.role)
+		self.on_user_modified.emit(self.role)
 
 	def __update_meta__(self):
 		''' Updates the text and styling for this widget. '''
@@ -177,6 +184,7 @@ class MainWindow( QMainWindow ):
 	update_from_preset = Signal( Preset, name='UpdateFromPreset' )
 
 	target: str|None = None
+	fileDirty: bool = False
 	exporting: bool = False
 	watching: bool = False
 
@@ -235,6 +243,10 @@ class MainWindow( QMainWindow ):
 
 		saveAction = fileMenu.addAction('Save')
 		saveAction.setShortcut(QKeySequence.StandardKey.Save)
+		saveAction.triggered.connect(self.save_preset_current)
+
+		saveAction = fileMenu.addAction('Save As...')
+		saveAction.setShortcut(QKeySequence.StandardKey.Save)
 		saveAction.triggered.connect(self.save_preset)
 		
 		fileMenu.addSeparator()
@@ -287,6 +299,7 @@ class MainWindow( QMainWindow ):
 		def registerWidgets(parent: QBoxLayout, entries: list[PickableImage]):
 			for widget in entries:
 				self.backend.role_updated.connect(widget.on_role_updated)
+				widget.on_user_modified.connect(self.mark_dirty)
 				parent.addWidget(widget)
 
 		registerWidgets(leftLayout, [
@@ -412,7 +425,7 @@ class MainWindow( QMainWindow ):
 		self.resize(600, 450)
 
 	def setWindowTitle(self, _title: str|None=None):
-		base_title = 'PBR-2-Source v'+__version__
+		base_title = '[*] PBR-2-Source v'+__version__
 		if self.watching: base_title += ' (Watching)'
 		if self.target != None: base_title += ' - ' + Path(self.target).name
 		super().setWindowTitle(base_title)
@@ -565,6 +578,27 @@ class MainWindow( QMainWindow ):
 	#endregion
 	#region Presets
 
+	def mark_dirty(self, *, dirty=True):
+		self.fileDirty = dirty
+		self.setWindowModified(dirty)
+
+	def check_if_dirty(self) -> bool:
+		if not self.fileDirty:
+			return True
+
+		message = QMessageBox(QMessageBox.Icon.Warning, f'Do you want to save the changes you made?', 'If you continue, your unsaved changes will be erased!')
+		message.addButton(QMessageBox.StandardButton.Save)
+		message.addButton(QMessageBox.StandardButton.Discard)
+		message.addButton(QMessageBox.StandardButton.Cancel)
+		message.setDefaultButton(QMessageBox.StandardButton.Save)
+		result = message.exec()
+
+		if result == QMessageBox.StandardButton.Save:
+			if not self.save_preset_current():
+				return False
+
+		return result != QMessageBox.StandardButton.Cancel
+
 	@Slot()
 	def new_preset(self):
 		self.load_preset(preset=Preset())
@@ -575,6 +609,9 @@ class MainWindow( QMainWindow ):
 
 	@Slot()
 	def load_preset(self, *, preset: Preset|None=None, path: str|None=None):
+		if not self.check_if_dirty():
+			return
+
 		if preset == None:
 			if path == None:
 				lastPresetPath = str(Path(self.cache.lastPresetPath).parent) if self.cache.lastPresetPath else str(Path.cwd())
@@ -599,19 +636,29 @@ class MainWindow( QMainWindow ):
 
 		self.backend.load_preset(preset)
 		self.update_from_preset.emit(preset)
+		self.mark_dirty(dirty=False)
+
+		# Update last-used path
+		# None values will force the program to ask for the path again on save
+		self.cache.lastPresetPath = path
 
 		# Append to recent files
 		if path:
 			self.pushRecentFile(path)
-			self.cache.lastPresetPath = path
 
-	def save_preset(self):
-		presetPath, _ = QFileDialog.getSaveFileName(self,
-									caption='Saving preset...',
-									filter='JSON Presets (*.json)',
-									dir=self.cache.lastPresetPath, # type: ignore
-									)
-		if not len(presetPath): return
+	def save_preset_current(self):
+		return self.save_preset(presetPath=self.cache.lastPresetPath)
+
+	def save_preset(self, *, presetPath: str|None=None) -> bool:
+		if presetPath == None:
+			presetPath, _ = QFileDialog.getSaveFileName(self,
+										caption='Saving preset...',
+										filter='JSON Presets (*.json)',
+										dir=self.cache.lastPresetPath, # type: ignore
+										)
+
+		if not len(presetPath):
+			return False
 
 		# Keep track of last preset path
 		self.cache.lastPresetPath = presetPath
@@ -619,6 +666,9 @@ class MainWindow( QMainWindow ):
 		preset = Preset()
 		self.backend.save_preset(preset)
 		preset.save(presetPath)
+
+		self.mark_dirty(dirty=False)
+		return True
 
 	#endregion
 	#region Recents
@@ -670,6 +720,9 @@ class MainWindow( QMainWindow ):
 			self.cache.recent.pop(-1)
 
 	def closeEvent(self, event: QCloseEvent) -> None:
+		if not self.check_if_dirty():
+			return
+
 		log.info('Shutting down...')
 		try:
 			log.debug('Saving app cache...')
