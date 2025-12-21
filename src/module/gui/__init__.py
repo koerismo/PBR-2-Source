@@ -246,7 +246,7 @@ class MainWindow( QMainWindow ):
 		saveAction.triggered.connect(self.save_preset_current)
 
 		saveAction = fileMenu.addAction('Save As...')
-		saveAction.setShortcut(QKeySequence.StandardKey.Save)
+		saveAction.setShortcut(QKeySequence.StandardKey.SaveAs)
 		saveAction.triggered.connect(self.save_preset)
 		
 		fileMenu.addSeparator()
