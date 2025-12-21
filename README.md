@@ -5,6 +5,7 @@ A Python-powered gui for converting pbr materials into Source Engine-compatible 
 - Supports PNG, JPG, BMP, and TGA input.
 - Automatically generates material VMTs.
 - Generates out-of-the-box functional materials for both PBR and traditional shaders.
+- Live material reloading with game integration.
 
 ---
 
