@@ -269,9 +269,9 @@ class MainWindow( QMainWindow ):
 			QKeySequence(QKeyCombination(Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier, Qt.Key.Key_E))
 			])
 
-		presetMenu = menuBar.addMenu('View')
-		advancedToggle = presetMenu.addAction('Advanced')
-		advancedToggle.setCheckable(True)
+		# presetMenu = menuBar.addMenu('View')
+		# advancedToggle = presetMenu.addAction('Advanced')
+		# advancedToggle.setCheckable(True)
 
 		#endregion
 		''' ========================== LAYOUT ========================== '''
