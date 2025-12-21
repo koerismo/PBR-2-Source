@@ -1,6 +1,6 @@
 [project]
 name = "PBR-2-Source"
-version = "2.1.0-beta1"
+version = "2.1.0-beta2"
 description = "A Python-powered gui for converting pbr materials into Source Engine-compatible materials."
 readme = "README.md"
 requires-python = ">=3.10"

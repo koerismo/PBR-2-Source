@@ -96,7 +96,7 @@ wheels = [
 
 [[package]]
 name = "pbr-2-source"
-version = "2.1.0b1"
+version = "2.1.0b2"
 source = { virtual = "." }
 dependencies = [
     { name = "numpy" },
