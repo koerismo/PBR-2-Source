@@ -21,7 +21,7 @@ from .config import get_config, TargetRole
 
 def game_envmaptint(game: GameTarget, vlg: bool) -> float:
 	if game > GameTarget.V2011: return 1.0
-	return .1 if vlg else .1**2.2
+	return .1 if vlg else round(.1**2.2, ndigits=4)
 
 def game_lightscale(game: GameTarget) -> float|None:
 	if game > GameTarget.V2011: return 1.0
@@ -56,7 +56,7 @@ def make_vmt(mat: Material) -> str:
 					'',
 					f'	$mraotexture		"{mat.name}{post(T.Mrao)}"',
 					f'	$model				{int(MaterialMode.is_model(mat.mode))}' )
-		
+
 		if mat.emit:
 			write(
 					f'	$emissiontexture	"{mat.name}{post(T.Emit)}"')
@@ -115,7 +115,7 @@ def make_vmt(mat: Material) -> str:
 					f'	$phongexponenttexture		"{mat.name}{post(T.PhongExp)}"',
 					'	$phongexponentfactor		32.0',
 					'	$phongboost					5.0')
-		
+
 		# Are envmap or phong using the fresnel ranges?
 		if MaterialMode.has_phong(mat.mode) or MaterialMode.has_envmap(mat.mode):
 			write(	'	$phongfresnelranges			"[0.1 0.8 1.0]"')
