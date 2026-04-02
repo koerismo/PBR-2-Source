@@ -1,9 +1,9 @@
 from typing import Any, Literal
 from enum import IntEnum, Enum
-from PySide6.QtWidgets import QWidget, QGridLayout, QLineEdit, QLabel, QVBoxLayout, QGroupBox, QCheckBox, QComboBox
+from PySide6.QtWidgets import QWidget, QGridLayout, QLineEdit, QLabel, QVBoxLayout, QCheckBox, QComboBox
 from PySide6.QtCore import Qt, Slot, QSignalMapper
 from PySide6.QtGui import QIntValidator, QDoubleValidator
-from ..core.config import TargetRole, TargetConfig, get_config
+from ..core.config import TargetRole, TargetConfig
 from ..core.enums import ImageFlags
 
 from sourcepp import vtfpp

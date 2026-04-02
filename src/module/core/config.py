@@ -50,7 +50,7 @@ class TargetConfig():
 	lossy: bool
 	zip: bool = False
 	mipmaps: int = -1
-	mipmapFilter: int = ResizeFilter.KAISER.value
+	mipmapFilter: int = ResizeFilter.NICE.value
 	flags: int = 0
 	# scale: float = 1.0
 

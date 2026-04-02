@@ -44,7 +44,11 @@ class CoreBackend(QObject):
 	paths: dict[ImageRole, str|None] = {}
 
 	path: Path|None = None
+	''' The full path to the last-picked VMT's parent folder. '''
+
 	name: str|None = None
+	''' This is the path used by the game to find the texture. ex. `models/props/my_prop` '''
+
 	game: GameTarget = Preset.game
 	mode: MaterialMode = Preset.mode
 	normalType: NormalType = Preset.normalType
@@ -186,9 +190,6 @@ class CoreBackend(QObject):
 		assert self.path != None and self.name != None, 'Something has gone very very wrong. Find a developer!'
 
 		appConfig = get_config()
-
-		# TODO: This is kinda dumb
-		assert self.name, 'Backend does not have name set. Tag a programmer!'
 		material.name = self.name
 
 		callback('Processing textures...', 20)
