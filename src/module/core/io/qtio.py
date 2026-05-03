@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from .image import Image, IOBackend
 
 from PySide6.QtGui import QImage
@@ -30,7 +31,7 @@ def load_sourcepp(file: IO[bytes], kind: str):
 		width = vtf.width
 		height = vtf.height
 	else:
-		raw_data, format, width, height, frameCount = ImageConversion.convert_file_to_image_data(file.read())
+		raw_data, format, width, height, frame_count = ImageConversion.convert_file_to_image_data(file.read())
 
 	f32_data = ImageConversion.convert_image_data_to_format(raw_data, format, ImageFormats.RGBA32323232F, width, height)
 	data = np.frombuffer(f32_data, dtype=np.float32).reshape(height, width, 4)
