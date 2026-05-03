@@ -8,13 +8,32 @@ import numpy as np
 from typing import IO
 from sourcepp import vtfpp
 ImageFormats = vtfpp.ImageFormat
+ImageConversion = vtfpp.ImageConversion
 
 qimage_test: QImage|None = None
 
-def load_vtf(file: IO[bytes]):
-	vtf = vtfpp.VTF(file.read())
-	frame: bytes = vtf.get_image_data_as_rgba8888()
-	data = (np.frombuffer(frame, dtype=np.uint8).astype(np.float32) / 255.0).reshape((vtf.width_for_mip(0), vtf.height_for_mip(0), 4))
+def get_path_suffix(path: str | Path) -> str:
+	split = str(path).rsplit('.', 1)
+	if len(split) > 1: return split[-1]
+	return ''
+
+def load_sourcepp(file: IO[bytes], kind: str):
+	raw_data: bytes
+	width: int
+	height: int
+	format: ImageFormats
+
+	if kind == 'vtf':
+		vtf = vtfpp.VTF(file.read())
+		raw_data = vtf.get_image_data_raw()
+		format = vtf.format
+		width = vtf.width
+		height = vtf.height
+	else:
+		raw_data, format, width, height, frameCount = ImageConversion.convert_file_to_image_data(file.read())
+
+	f32_data = ImageConversion.convert_image_data_to_format(raw_data, format, ImageFormats.RGBA32323232F, width, height)
+	data = np.frombuffer(f32_data, dtype=np.float32).reshape(height, width, 4)
 	return Image(data)
 
 def image_to_qimage(image: Image) -> QImage:
@@ -56,32 +75,33 @@ def qimage_to_image(qimage: QImage) -> Image:
 	data = np.frombuffer(ptr, dtype=dtype).copy().reshape(qimage.height(), qimage.width(), channels)
 	return Image(data)
 
+SPP_SUPPORTED = ('vtf', 'hdr', 'exr')
+''' A list of file extensions that sourcepp should handle instead of Qt. '''
+
 class QtIOBackend(IOBackend):
 	@staticmethod
-	def load_qimage(path: str|Path) -> QImage:
-		if (str(path).endswith('.vtf')):
-			with open(path, 'rb') as file:
-				return image_to_qimage(load_vtf(file))
-			
+	def load_qimage(path: str | Path) -> QImage:
 		im = QImage()
 		assert im.load(str(path)), 'Failed to load image!'
 		return im
 
 	@staticmethod
 	def load(path: str|Path) -> Image:
-		if (str(path).endswith('.vtf')):
-			with open(path, 'rb') as file:
-				return load_vtf(file)
+		kind = get_path_suffix(path)
 
-		return qimage_to_image(QtIOBackend.load_qimage(path))
+		if kind not in SPP_SUPPORTED:
+			return qimage_to_image(QtIOBackend.load_qimage(path))
+
+		with open(path, 'rb') as file:
+			return load_sourcepp(file, kind)
 
 	@staticmethod
 	def save(image: Image, path: str | Path, version=4, lossy=True, zip=False, flags=0, mipmaps=-1, mipmapFilter=vtfpp.ImageConversion.ResizeFilter.DEFAULT, **kwargs) -> bool:
 		height, width, bands = image.data.shape
 
-		path = Path(path)
-		if path.suffix !='.vtf':
-			return image_to_qimage(image).save(str(path))
+		path = str(path)
+		if get_path_suffix(path) not in SPP_SUPPORTED:
+			return image_to_qimage(image).save(path)
 
 		format = None
 		target_format = None

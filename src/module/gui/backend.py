@@ -88,15 +88,8 @@ class CoreBackend(QObject):
 	def __load_image__(self, path: str) -> tuple[QImage, Image]:
 		''' Loads the specified path as an image, returning a (QImage, Image) tuple. '''
 		image: QImage = QImage()
-		converted: Image|None = None
-
-		if path.endswith('.vtf') or path.endswith('.hdr'):
-			converted = QtIOBackend.load(path)
-			image = image_to_qimage(converted)
-		else:
-			image = QtIOBackend.load_qimage(path)
-			converted = qimage_to_image(image)
-
+		converted = QtIOBackend.load(path)
+		image = image_to_qimage(converted)
 		return (image, converted)
 
 	def set_role_image(self, path: str|None, role: ImageRole) -> tuple[QImage, Image] | tuple[None, None]:
