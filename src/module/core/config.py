@@ -48,7 +48,7 @@ class TargetRole(Enum):
 class TargetConfig():
 	postfix: str
 	lossy: bool
-	zip: bool = False
+	zip: bool = True
 	mipmaps: int = -1
 	mipmapFilter: int = ResizeFilter.NICE.value
 	flags: int = 0
@@ -91,14 +91,13 @@ class AppConfig():
 		TargetRole.Basecolor:	TargetConfig("_basecolor.vtf",	True),
 		TargetRole.Bumpmap:		TargetConfig("_bump.vtf",
 									False,
-									True,
 									mipmapFilter=ResizeFilter.BILINEAR.value,
 									flags=TexFlags.V0_NORMAL.value
 								),
-		TargetRole.Emit:		TargetConfig("_emit.vtf",		False),
+		TargetRole.Emit:		TargetConfig("_emit.vtf",		True),
 		TargetRole.PhongExp:	TargetConfig("_phongexp.vtf",	False),
 		TargetRole.EnvmapMask:	TargetConfig("_envmask.vtf",	False),
-		TargetRole.Mrao:		TargetConfig("_mrao.vtf",		False, True)
+		TargetRole.Mrao:		TargetConfig("_mrao.vtf",		True)
 	})
 
 	def encode(self):

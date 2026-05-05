@@ -3,7 +3,7 @@
 from PySide6.QtGui import QImage
 from PySide6.QtCore import Signal, QObject
 
-from ..core.io.qtio import QtIOBackend, qimage_to_image, image_to_qimage
+from ..core.io.qtio import QtIOBackend, image_to_qimage
 from ..core import texops
 from ..core.export import export as core_export
 from ..core.vmt import make_vmt as core_make_vmt

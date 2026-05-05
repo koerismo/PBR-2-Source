@@ -30,15 +30,15 @@ def game_lightscale(game: GameTarget) -> float|None:
 
 
 def make_vmt(mat: Material) -> str:
-	pbr    = MaterialMode.is_pbr(mat.mode)
+	pbr = MaterialMode.is_pbr(mat.mode)
 	shader = MaterialMode.get_shader(mat.mode)
-	vmt    = []
+	vmt: list[str] = []
 
 	texRoles = get_config().targets
 	T = TargetRole
 
 	def post(role: TargetRole):
-		return texRoles[role].postfix.rsplit('.', 2)[0]
+		return texRoles[role].postfix.rsplit('.', 1)[0]
 
 	def write(*args: str):
 		l = len(vmt)
